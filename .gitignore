@@ -43,7 +43,11 @@ ENV/
 logs/
 
 # Data (optional, depending on whether you want to track data files)
-# data/
+# Keep profiles/ (user configuration), ignore runtime-generated data
+data/db/
+data/digests/
+data/knowledge/
+data/raw/
 
 # OS
 .DS_Store
