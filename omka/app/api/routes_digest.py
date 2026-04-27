@@ -40,3 +40,10 @@ async def get_ranked_candidates(limit: int = 20):
             }
             for c in candidates
         ]
+
+
+@router.post("/run-today")
+async def run_today_digest():
+    from omka.app.services.daily_job import run_daily_job
+    result = await run_daily_job()
+    return result

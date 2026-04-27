@@ -25,7 +25,8 @@ async def lifespan(app: FastAPI):
     # 启动调度器
     start_scheduler()
 
-    pass
+    from omka.app.services.daily_job import run_daily_job
+    schedule_daily_job(run_daily_job)
 
     logger.info("OMKA 启动完成 | API=http://%s:%d", settings.api_host, settings.api_port)
 
