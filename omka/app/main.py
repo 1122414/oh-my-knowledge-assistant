@@ -25,9 +25,7 @@ async def lifespan(app: FastAPI):
     # 启动调度器
     start_scheduler()
 
-    # TODO: 注册每日任务（Phase 5 完成后启用）
-    # from omka.app.services.daily_job import run_daily_job
-    # schedule_daily_job(run_daily_job)
+    pass
 
     logger.info("OMKA 启动完成 | API=http://%s:%d", settings.api_host, settings.api_port)
 
@@ -61,9 +59,5 @@ async def health_check():
     }
 
 
-# TODO: Phase 1 完成后注册路由
-# from omka.app.api import routes_sources, routes_digest, routes_feedback, routes_knowledge
-# app.include_router(routes_sources.router, prefix="/sources", tags=["信息源"])
-# app.include_router(routes_digest.router, prefix="/digests", tags=["每日简报"])
-# app.include_router(routes_feedback.router, prefix="/candidates", tags=["候选池"])
-# app.include_router(routes_knowledge.router, prefix="/knowledge", tags=["知识库"])
+from omka.app.api import routes_sources
+app.include_router(routes_sources.router, prefix="/sources", tags=["信息源"])
