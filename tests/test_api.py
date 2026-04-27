@@ -126,7 +126,13 @@ async def test_cleanup(source_id: str):
     async with httpx.AsyncClient() as client:
         r = await client.delete(f"{BASE_URL}/sources/{source_id}")
         assert r.status_code == 200
-        print("[PASS] 清理测试数据", r.json())
+        print("[PASS] 清理测试数据源", r.json())
+
+        r = await client.get(f"{BASE_URL}/knowledge")
+        if r.status_code == 200:
+            for item in r.json():
+                if item["id"].startswith("knowledge:candidate:"):
+                    await client.delete(f"{BASE_URL}/knowledge/{item['id']}")
 
 
 async def run_all_tests():

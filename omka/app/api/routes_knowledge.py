@@ -4,8 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import select
 
 from omka.app.core.logging import logger
-from omka.app.storage.db import CandidateItem, KnowledgeItem, NormalizedItem, UserFeedback, get_session
-from omka.app.storage.markdown_store import save_knowledge_markdown
+from omka.app.storage.db import KnowledgeItem, UserFeedback, get_session
 
 router = APIRouter()
 

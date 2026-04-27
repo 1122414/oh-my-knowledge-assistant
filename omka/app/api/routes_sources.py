@@ -1,10 +1,45 @@
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 from sqlmodel import select
 
+from omka.app.connectors.base import SourceConnector
+from omka.app.connectors.github.connector import GitHubConnector
 from omka.app.core.logging import logger
-from omka.app.storage.db import SourceConfig, get_session
+from omka.app.storage.db import RawItem, SourceConfig, get_session
+from omka.app.storage.repositories import compute_raw_item_id
+
+
+class ConnectorRegistry:
+    _connectors: dict[str, type[SourceConnector]] = {
+        "github": GitHubConnector,
+    }
+
+    @classmethod
+    def register(cls, source_type: str, connector_cls: type[SourceConnector]) -> None:
+        cls._connectors[source_type] = connector_cls
+
+    @classmethod
+    def get(cls, source_type: str) -> SourceConnector:
+        connector_cls = cls._connectors.get(source_type)
+        if not connector_cls:
+            raise ValueError(f"未注册的 Connector 类型: {source_type}")
+        return connector_cls()
+
+
+class SourceCreateRequest(BaseModel):
+    id: str = Field(..., description="数据源唯一标识")
+    source_type: str = Field(default="github", description="数据源类型")
+    name: str = Field(..., description="显示名称")
+    enabled: bool = Field(default=True)
+    mode: str = Field(..., description="repo 或 search")
+    repo_full_name: str | None = None
+    query: str | None = None
+    limit: int = Field(default=5)
+    weight: float = Field(default=1.0)
+
 
 router = APIRouter()
 
@@ -31,10 +66,10 @@ async def list_sources():
 
 
 @router.post("")
-async def create_source(data: dict[str, Any]):
-    config = SourceConfig(**data)
+async def create_source(data: SourceCreateRequest):
+    config = SourceConfig(**data.model_dump())
     with get_session() as session:
-        session.add(config)
+        session.merge(config)
         session.commit()
         logger.info("创建数据源 | id=%s | mode=%s", config.id, config.mode)
     return {"id": config.id, "message": "数据源已创建"}
@@ -48,6 +83,7 @@ async def update_source(source_id: str, data: dict[str, Any]):
             raise HTTPException(status_code=404, detail="数据源不存在")
         for key, value in data.items():
             setattr(config, key, value)
+        config.updated_at = datetime.utcnow()
         session.add(config)
         session.commit()
         logger.info("更新数据源 | id=%s", source_id)
@@ -68,23 +104,20 @@ async def delete_source(source_id: str):
 
 @router.post("/{source_id}/run")
 async def run_source(source_id: str):
-    from omka.app.connectors.github.connector import GitHubConnector
-
     with get_session() as session:
         config = session.get(SourceConfig, source_id)
         if not config:
             raise HTTPException(status_code=404, detail="数据源不存在")
 
-    connector = GitHubConnector()
+    connector = ConnectorRegistry.get(config.source_type)
     raw_items = await connector.fetch(config.model_dump())
 
-    from omka.app.storage.db import RawItem
     with get_session() as session:
         for item in raw_items:
             raw = RawItem(
-                id=f"{item['item_type']}:{config.id}:{hash(str(item['raw_data']))}",
+                id=compute_raw_item_id(item["item_type"], config.id, item["raw_data"]),
                 source_id=config.id,
-                source_type="github",
+                source_type=config.source_type,
                 item_type=item["item_type"],
                 fetch_url=item["fetch_url"],
                 http_status=item["http_status"],
@@ -93,7 +126,7 @@ async def run_source(source_id: str):
             )
             session.merge(raw)
 
-        config.last_fetched_at = __import__("datetime").datetime.utcnow()
+        config.last_fetched_at = datetime.utcnow()
         session.add(config)
         session.commit()
 

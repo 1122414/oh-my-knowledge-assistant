@@ -2,27 +2,45 @@ from typing import Any
 
 from sqlmodel import select
 
+from omka.app.connectors.base import SourceConnector
 from omka.app.connectors.github.connector import GitHubConnector
 from omka.app.core.logging import logger
 from omka.app.storage.db import NormalizedItem, RawItem, get_session
 
 
+class ConnectorRegistry:
+    _connectors: dict[str, type[SourceConnector]] = {
+        "github": GitHubConnector,
+    }
+
+    @classmethod
+    def get(cls, source_type: str) -> SourceConnector:
+        connector_cls = cls._connectors.get(source_type)
+        if not connector_cls:
+            raise ValueError(f"未注册的 Connector 类型: {source_type}")
+        return connector_cls()
+
+
 def clean_and_normalize() -> dict[str, Any]:
-    """将 RawItem 转换为 NormalizedItem"""
     with get_session() as session:
+        existing_ids = {
+            row[0] for row in session.exec(select(NormalizedItem.id)).all()
+        }
         raw_items = session.exec(select(RawItem)).all()
 
-    if not raw_items:
+    pending_raws = [r for r in raw_items if r.id not in existing_ids]
+
+    if not pending_raws:
         logger.info("没有需要规范化的原始数据")
         return {"normalized_count": 0}
 
-    connector = GitHubConnector()
     normalized_count = 0
     skipped_count = 0
 
     with get_session() as session:
-        for raw in raw_items:
+        for raw in pending_raws:
             try:
+                connector = ConnectorRegistry.get(raw.source_type)
                 normalized = connector.normalize(raw.model_dump())
                 if not normalized:
                     skipped_count += 1
@@ -58,7 +76,6 @@ def clean_and_normalize() -> dict[str, Any]:
 
 
 def compute_content_hash(title: str, content: str) -> str:
-    """计算内容指纹用于去重"""
     import hashlib
     text = (title + content[:1000]).lower().strip()
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]

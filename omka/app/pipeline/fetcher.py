@@ -1,14 +1,34 @@
+from datetime import datetime
 from typing import Any
 
 from sqlmodel import select
 
+from omka.app.connectors.base import SourceConnector
 from omka.app.connectors.github.connector import GitHubConnector
 from omka.app.core.logging import logger
 from omka.app.storage.db import FetchRun, RawItem, SourceConfig, get_session
+from omka.app.storage.repositories import compute_raw_item_id
+
+
+class ConnectorRegistry:
+    _connectors: dict[str, type[SourceConnector]] = {
+        "github": GitHubConnector,
+    }
+
+    @classmethod
+    def register(cls, source_type: str, connector_cls: type[SourceConnector]) -> None:
+        cls._connectors[source_type] = connector_cls
+        logger.info("注册 Connector | type=%s | class=%s", source_type, connector_cls.__name__)
+
+    @classmethod
+    def get(cls, source_type: str) -> SourceConnector:
+        connector_cls = cls._connectors.get(source_type)
+        if not connector_cls:
+            raise ValueError(f"未注册的 Connector 类型: {source_type}")
+        return connector_cls()
 
 
 async def fetch_all_sources() -> dict[str, Any]:
-    """批量抓取所有启用的数据源"""
     with get_session() as session:
         configs = session.exec(
             select(SourceConfig).where(SourceConfig.enabled == True)
@@ -26,17 +46,17 @@ async def fetch_all_sources() -> dict[str, Any]:
 
     total_fetched = 0
     errors = []
-    connector = GitHubConnector()
 
     for config in configs:
         try:
+            connector = ConnectorRegistry.get(config.source_type)
             raw_items = await connector.fetch(config.model_dump())
             with get_session() as session:
                 for item in raw_items:
                     raw = RawItem(
-                        id=f"{item['item_type']}:{config.id}:{hash(str(item['raw_data']))}",
+                        id=compute_raw_item_id(item["item_type"], config.id, item["raw_data"]),
                         source_id=config.id,
-                        source_type="github",
+                        source_type=config.source_type,
                         item_type=item["item_type"],
                         fetch_url=item["fetch_url"],
                         http_status=item["http_status"],
@@ -45,7 +65,7 @@ async def fetch_all_sources() -> dict[str, Any]:
                     )
                     session.merge(raw)
 
-                config.last_fetched_at = __import__("datetime").datetime.utcnow()
+                config.last_fetched_at = datetime.utcnow()
                 session.add(config)
                 session.commit()
 
@@ -71,4 +91,5 @@ async def fetch_all_sources() -> dict[str, Any]:
         "fetched_count": total_fetched,
         "error_count": len(errors),
         "errors": errors,
+        "run_id": run_id,
     }

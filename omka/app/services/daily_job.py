@@ -7,6 +7,7 @@ from omka.app.pipeline.deduper import dedup_and_create_candidates
 from omka.app.pipeline.digest_builder import generate_digest
 from omka.app.pipeline.fetcher import fetch_all_sources
 from omka.app.pipeline.ranker import rank_candidates
+from omka.app.storage.db import FetchRun, get_session
 
 
 async def run_daily_job() -> dict[str, Any]:
@@ -15,10 +16,12 @@ async def run_daily_job() -> dict[str, Any]:
     logger.info("=" * 50)
 
     result = {"phases": {}}
+    run_id: int | None = None
 
     try:
         fetch_result = await fetch_all_sources()
         result["phases"]["fetch"] = fetch_result
+        run_id = fetch_result.get("run_id")
         logger.info("[Phase 1] 抓取完成 | fetched=%d", fetch_result.get("fetched_count", 0))
     except Exception as e:
         logger.error("[Phase 1] 抓取失败 | error=%s", e)
@@ -56,6 +59,19 @@ async def run_daily_job() -> dict[str, Any]:
     except Exception as e:
         logger.error("[Phase 5] 简报生成失败 | error=%s", e)
         result["phases"]["digest"] = {"status": "failed", "error": str(e)}
+
+    if run_id:
+        try:
+            with get_session() as session:
+                run = session.get(FetchRun, run_id)
+                if run:
+                    run.finished_at = datetime.utcnow()
+                    run.normalized_count = result["phases"].get("clean", {}).get("normalized_count", 0)
+                    run.candidate_count = result["phases"].get("dedup", {}).get("candidate_count", 0)
+                    session.add(run)
+                    session.commit()
+        except Exception as e:
+            logger.error("更新 FetchRun 失败 | run_id=%s | error=%s", run_id, e)
 
     logger.info("=" * 50)
     logger.info("每日任务执行完毕")
