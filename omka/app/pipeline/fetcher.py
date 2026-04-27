@@ -1,0 +1,74 @@
+from typing import Any
+
+from sqlmodel import select
+
+from omka.app.connectors.github.connector import GitHubConnector
+from omka.app.core.logging import logger
+from omka.app.storage.db import FetchRun, RawItem, SourceConfig, get_session
+
+
+async def fetch_all_sources() -> dict[str, Any]:
+    """批量抓取所有启用的数据源"""
+    with get_session() as session:
+        configs = session.exec(
+            select(SourceConfig).where(SourceConfig.enabled == True)
+        ).all()
+
+    if not configs:
+        logger.warning("没有启用的数据源")
+        return {"status": "no_sources", "fetched_count": 0}
+
+    run = FetchRun(job_type="github_daily", status="running")
+    with get_session() as session:
+        session.add(run)
+        session.commit()
+        run_id = run.id
+
+    total_fetched = 0
+    errors = []
+    connector = GitHubConnector()
+
+    for config in configs:
+        try:
+            raw_items = await connector.fetch(config.model_dump())
+            with get_session() as session:
+                for item in raw_items:
+                    raw = RawItem(
+                        id=f"{item['item_type']}:{config.id}:{hash(str(item['raw_data']))}",
+                        source_id=config.id,
+                        source_type="github",
+                        item_type=item["item_type"],
+                        fetch_url=item["fetch_url"],
+                        http_status=item["http_status"],
+                        raw_data=item["raw_data"],
+                        fetched_at=item["fetched_at"],
+                    )
+                    session.merge(raw)
+
+                config.last_fetched_at = __import__("datetime").datetime.utcnow()
+                session.add(config)
+                session.commit()
+
+            total_fetched += len(raw_items)
+            logger.info("抓取完成 | source=%s | count=%d", config.id, len(raw_items))
+        except Exception as e:
+            errors.append(f"{config.id}: {str(e)}")
+            logger.error("抓取失败 | source=%s | error=%s", config.id, e)
+
+    status = "success" if not errors else ("partial_success" if total_fetched > 0 else "failed")
+    with get_session() as session:
+        run = session.get(FetchRun, run_id)
+        run.status = status
+        run.fetched_count = total_fetched
+        run.error_count = len(errors)
+        run.error_message = "; ".join(errors) if errors else None
+        session.add(run)
+        session.commit()
+
+    logger.info("批量抓取完成 | total=%d | errors=%d", total_fetched, len(errors))
+    return {
+        "status": status,
+        "fetched_count": total_fetched,
+        "error_count": len(errors),
+        "errors": errors,
+    }
