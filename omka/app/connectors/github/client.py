@@ -87,7 +87,6 @@ class GitHubClient:
                         return {}
 
                     if response.status_code in (403, 429):
-                        reset = response.headers.get("x-ratelimit-reset")
                         retry_after = response.headers.get("retry-after")
                         wait = int(retry_after) if retry_after else 60
                         logger.warning(

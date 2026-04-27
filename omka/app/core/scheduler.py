@@ -49,11 +49,6 @@ def schedule_daily_job(job_func, job_id: str = "github_daily_job") -> None:
     """
     scheduler = get_scheduler()
 
-    # 如果任务已存在，先移除
-    if scheduler.get_job(job_id):
-        scheduler.remove_job(job_id)
-        logger.info("移除已存在的定时任务: %s", job_id)
-
     # Cron 表达式解析: 分 时 日 月 周
     parts = settings.scheduler_daily_cron.split()
     trigger = CronTrigger(

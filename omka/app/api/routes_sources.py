@@ -7,8 +7,8 @@ from sqlmodel import select
 
 from omka.app.connectors.registry import ConnectorRegistry
 from omka.app.core.logging import logger
-from omka.app.storage.db import RawItem, SourceConfig, get_session
-from omka.app.storage.repositories import compute_raw_item_id
+from omka.app.storage.db import SourceConfig, get_session
+from omka.app.storage.repositories import save_raw_items
 
 
 class SourceCreateRequest(BaseModel):
@@ -93,21 +93,9 @@ async def run_source(source_id: str):
 
     connector = ConnectorRegistry.get(config.source_type)
     raw_items = await connector.fetch(config.model_dump())
+    save_raw_items(raw_items, config)
 
     with get_session() as session:
-        for item in raw_items:
-            raw = RawItem(
-                id=compute_raw_item_id(item["item_type"], config.id, item["raw_data"]),
-                source_id=config.id,
-                source_type=config.source_type,
-                item_type=item["item_type"],
-                fetch_url=item["fetch_url"],
-                http_status=item["http_status"],
-                raw_data=item["raw_data"],
-                fetched_at=item["fetched_at"],
-            )
-            session.merge(raw)
-
         config.last_fetched_at = datetime.utcnow()
         session.merge(config)
         session.commit()

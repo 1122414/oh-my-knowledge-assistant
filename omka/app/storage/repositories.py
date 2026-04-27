@@ -7,7 +7,7 @@ import hashlib
 import json
 from typing import Any
 
-from omka.app.storage.db import SourceConfig, get_session
+from omka.app.storage.db import RawItem, SourceConfig, get_session
 
 
 def compute_raw_item_id(item_type: str, source_id: str, raw_data: dict[str, Any]) -> str:
@@ -15,6 +15,24 @@ def compute_raw_item_id(item_type: str, source_id: str, raw_data: dict[str, Any]
     data_str = json.dumps(raw_data, sort_keys=True, ensure_ascii=False, default=str)
     hash_value = hashlib.sha256(f"{item_type}:{source_id}:{data_str}".encode("utf-8")).hexdigest()
     return f"{item_type}:{source_id}:{hash_value[:16]}"
+
+
+def save_raw_items(raw_items: list[dict[str, Any]], source_config: SourceConfig) -> int:
+    with get_session() as session:
+        for item in raw_items:
+            raw = RawItem(
+                id=compute_raw_item_id(item["item_type"], source_config.id, item["raw_data"]),
+                source_id=source_config.id,
+                source_type=source_config.source_type,
+                item_type=item["item_type"],
+                fetch_url=item["fetch_url"],
+                http_status=item["http_status"],
+                raw_data=item["raw_data"],
+                fetched_at=item["fetched_at"],
+            )
+            session.merge(raw)
+        session.commit()
+    return len(raw_items)
 
 
 def load_profile_sources() -> int:

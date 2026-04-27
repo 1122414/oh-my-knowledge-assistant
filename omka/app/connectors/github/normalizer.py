@@ -14,8 +14,7 @@ def _extract_owner_login(raw: dict[str, Any]) -> str | None:
     return None
 
 
-def normalize_repo(raw: dict[str, Any], source_id: str, search_query: str | None = None) -> dict[str, Any]:
-    """将 GitHub repo 原始数据转换为 NormalizedItem"""
+def _parse_repo(raw: dict[str, Any], search_query: str | None = None) -> GitHubRepoData:
     data = dict(raw)
     if "owner_login" not in data:
         data["owner_login"] = _extract_owner_login(raw)
@@ -25,6 +24,12 @@ def normalize_repo(raw: dict[str, Any], source_id: str, search_query: str | None
     if search_query:
         repo.search_query = search_query
         repo.search_score = raw.get("score")
+    return repo
+
+
+def normalize_repo(raw: dict[str, Any], source_id: str, search_query: str | None = None) -> dict[str, Any]:
+    """将 GitHub repo 原始数据转换为 NormalizedItem"""
+    repo = _parse_repo(raw, search_query)
 
     content_parts = [
         repo.description or "",
@@ -93,14 +98,7 @@ def normalize_release(raw: dict[str, Any], repo_full_name: str, source_id: str) 
 
 def normalize_search_repo(raw: dict[str, Any], source_id: str, search_query: str) -> dict[str, Any]:
     """将 GitHub 搜索结果的 repo 转换为 NormalizedItem"""
-    data = dict(raw)
-    if "owner_login" not in data:
-        data["owner_login"] = _extract_owner_login(raw)
-    if "api_url" not in data:
-        data["api_url"] = data.get("url")
-    repo = GitHubRepoData.model_validate(data)
-    repo.search_query = search_query
-    repo.search_score = raw.get("score")
+    repo = _parse_repo(raw, search_query)
 
     content_parts = [
         repo.description or "",
