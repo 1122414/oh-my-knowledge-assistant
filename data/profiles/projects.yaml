@@ -1,0 +1,16 @@
+projects:
+  - name: Personal Knowledge Assistant
+    keywords:
+      - personal ai
+      - knowledge assistant
+      - memory
+      - recommendation
+    weight: 1.3
+
+  - name: Browser Automation Framework
+    keywords:
+      - browser automation
+      - web scraping
+      - playwright
+      - headless browser
+    weight: 1.1

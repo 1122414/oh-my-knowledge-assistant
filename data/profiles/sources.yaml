@@ -1,0 +1,18 @@
+github:
+  repos:
+    - langchain-ai/langgraph
+    - microsoft/playwright
+    - browser-use/browser-use
+
+  searches:
+    - name: Browser Agent
+      query: "browser agent"
+      limit: 5
+
+    - name: RAG Agent
+      query: "rag agent"
+      limit: 5
+
+    - name: Personal Knowledge Assistant
+      query: "personal knowledge assistant llm"
+      limit: 5

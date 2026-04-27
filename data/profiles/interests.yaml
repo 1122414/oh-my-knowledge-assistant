@@ -1,0 +1,34 @@
+interests:
+  - name: AI Agent
+    keywords:
+      - agent
+      - langgraph
+      - multi-agent
+      - tool use
+      - autonomous agent
+    weight: 1.0
+
+  - name: Browser Agent
+    keywords:
+      - playwright
+      - browser automation
+      - drissionpage
+      - aria snapshot
+      - browser-use
+    weight: 1.2
+
+  - name: RAG
+    keywords:
+      - rag
+      - retrieval augmented generation
+      - vector search
+      - embedding
+    weight: 0.9
+
+  - name: Personal Knowledge Management
+    keywords:
+      - knowledge management
+      - second brain
+      - zettelkasten
+      - note taking
+    weight: 0.8
