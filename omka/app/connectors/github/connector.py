@@ -41,7 +41,7 @@ class GitHubConnector(SourceConnector):
                             "fetch_url": f"{settings.github_api_base_url}/repos/{owner}/{repo}",
                             "http_status": 200,
                             "raw_data": repo_data,
-                            "fetched_at": datetime.utcnow().isoformat(),
+                            "fetched_at": datetime.utcnow(),
                         })
                 except Exception as e:
                     logger.error("抓取仓库失败 | repo=%s | error=%s", repo_full_name, e)
@@ -57,7 +57,7 @@ class GitHubConnector(SourceConnector):
                             "fetch_url": f"{settings.github_api_base_url}/repos/{owner}/{repo}/releases",
                             "http_status": 200,
                             "raw_data": release,
-                            "fetched_at": datetime.utcnow().isoformat(),
+                            "fetched_at": datetime.utcnow(),
                         })
                 except Exception as e:
                     logger.error("抓取 Release 失败 | repo=%s | error=%s", repo_full_name, e)
@@ -78,7 +78,7 @@ class GitHubConnector(SourceConnector):
                             "fetch_url": f"{settings.github_api_base_url}/search/repositories?q={query}",
                             "http_status": 200,
                             "raw_data": item,
-                            "fetched_at": datetime.utcnow().isoformat(),
+                            "fetched_at": datetime.utcnow(),
                         })
                 except Exception as e:
                     logger.error("搜索仓库失败 | query=%s | error=%s", query, e)

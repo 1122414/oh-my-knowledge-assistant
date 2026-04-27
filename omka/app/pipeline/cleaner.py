@@ -46,7 +46,7 @@ def clean_and_normalize() -> dict[str, Any]:
                     updated_at=normalized.get("updated_at"),
                     fetched_at=normalized["fetched_at"],
                     tags=normalized.get("tags", []),
-                    metadata=normalized.get("metadata", {}),
+                    item_metadata=normalized.get("item_metadata", {}),
                     content_hash=compute_content_hash(normalized["title"], normalized["content"]),
                 )
                 session.merge(item)

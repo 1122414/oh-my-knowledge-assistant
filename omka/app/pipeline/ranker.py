@@ -75,7 +75,7 @@ def compute_scores(item: NormalizedItem, profile: UserProfile) -> dict[str, Any]
                 break
 
     freshness_score = compute_freshness_score(item.updated_at or item.published_at)
-    popularity_score = compute_popularity_score(item.metadata)
+    popularity_score = compute_popularity_score(item.item_metadata)
 
     return {
         "interest_score": round(min(interest_score, 5.0), 4),

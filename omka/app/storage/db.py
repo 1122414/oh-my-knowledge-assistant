@@ -142,7 +142,7 @@ class NormalizedItem(BaseSchema, table=True):
     fetched_at: datetime = Field(default_factory=datetime.utcnow, description="抓取时间")
 
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="标签列表")
-    metadata: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
+    item_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
     content_hash: str = Field(description="内容指纹，用于去重")
 
 
@@ -194,7 +194,7 @@ class KnowledgeItem(BaseSchema, table=True):
 
     summary: str | None = Field(default=None, description="摘要")
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="标签")
-    metadata: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
+    item_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
 
     # 知识图谱预留字段
     entities: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="实体")
