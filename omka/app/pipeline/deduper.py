@@ -24,6 +24,9 @@ def dedup_and_create_candidates() -> dict[str, Any]:
         existing_candidates = session.exec(select(CandidateItem)).all()
         for c in existing_candidates:
             seen_urls.add(c.url)
+            normalized = session.get(NormalizedItem, c.normalized_item_id)
+            if normalized:
+                seen_hashes.add(normalized.content_hash)
 
         for item in normalized_items:
             if item.url in seen_urls:

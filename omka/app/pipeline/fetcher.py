@@ -3,29 +3,10 @@ from typing import Any
 
 from sqlmodel import select
 
-from omka.app.connectors.base import SourceConnector
-from omka.app.connectors.github.connector import GitHubConnector
+from omka.app.connectors.registry import ConnectorRegistry
 from omka.app.core.logging import logger
 from omka.app.storage.db import FetchRun, RawItem, SourceConfig, get_session
 from omka.app.storage.repositories import compute_raw_item_id
-
-
-class ConnectorRegistry:
-    _connectors: dict[str, type[SourceConnector]] = {
-        "github": GitHubConnector,
-    }
-
-    @classmethod
-    def register(cls, source_type: str, connector_cls: type[SourceConnector]) -> None:
-        cls._connectors[source_type] = connector_cls
-        logger.info("注册 Connector | type=%s | class=%s", source_type, connector_cls.__name__)
-
-    @classmethod
-    def get(cls, source_type: str) -> SourceConnector:
-        connector_cls = cls._connectors.get(source_type)
-        if not connector_cls:
-            raise ValueError(f"未注册的 Connector 类型: {source_type}")
-        return connector_cls()
 
 
 async def fetch_all_sources() -> dict[str, Any]:
