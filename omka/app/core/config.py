@@ -4,10 +4,8 @@
 环境变量定义在 .env.example 中，复制为 .env 后填入实际值。
 """
 
-import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict

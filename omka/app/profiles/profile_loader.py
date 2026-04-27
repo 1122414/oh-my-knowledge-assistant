@@ -29,9 +29,4 @@ def load_sources_config() -> dict[str, Any]:
     return load_yaml(settings.profiles_dir / "sources.yaml")
 
 
-def load_identity() -> str:
-    path = settings.profiles_dir / "identity.md"
-    if not path.exists():
-        return ""
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+

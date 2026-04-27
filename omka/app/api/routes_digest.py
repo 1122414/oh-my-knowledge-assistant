@@ -1,9 +1,6 @@
-from typing import Any
-
 from fastapi import APIRouter
 from sqlmodel import select
 
-from omka.app.core.config import settings
 from omka.app.pipeline.ranker import rank_candidates
 from omka.app.storage.db import CandidateItem, get_session
 

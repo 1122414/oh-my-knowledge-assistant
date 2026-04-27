@@ -7,9 +7,8 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import JSON, Column, UniqueConstraint
-from sqlalchemy.orm import declarative_base
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, Session, SQLModel, create_engine
 
 from omka.app.core.config import settings
 from omka.app.core.logging import logger
