@@ -37,14 +37,50 @@ async def list_candidates(status: str | None = None):
 
 @router.post("/{candidate_id}/confirm")
 async def confirm_candidate(candidate_id: str):
+    from omka.app.storage.db import KnowledgeItem, NormalizedItem
+    from omka.app.storage.markdown_store import save_knowledge_markdown
+
     with get_session() as session:
         candidate = session.get(CandidateItem, candidate_id)
         if not candidate:
             raise HTTPException(status_code=404, detail="候选条目不存在")
+
+        normalized = session.get(NormalizedItem, candidate.normalized_item_id)
+        if not normalized:
+            raise HTTPException(status_code=404, detail="关联数据不存在")
+
+        knowledge = KnowledgeItem(
+            id=f"knowledge:{candidate.id}",
+            candidate_item_id=candidate.id,
+            title=candidate.title,
+            url=candidate.url,
+            item_type=candidate.item_type,
+            content=normalized.content,
+            summary=candidate.summary,
+            tags=normalized.tags,
+            metadata=normalized.metadata,
+        )
+        session.merge(knowledge)
+
         candidate.status = "confirmed"
         session.add(candidate)
         session.commit()
-        logger.info("候选条目已确认 | id=%s", candidate_id)
+
+        try:
+            save_knowledge_markdown({
+                "title": candidate.title,
+                "url": candidate.url,
+                "item_type": candidate.item_type,
+                "author": normalized.author,
+                "summary": candidate.summary or "",
+                "content": normalized.content,
+                "tags": normalized.tags,
+                "repo_full_name": normalized.repo_full_name,
+            })
+        except Exception as e:
+            logger.error("保存 Markdown 失败 | id=%s | error=%s", candidate_id, e)
+
+        logger.info("候选条目已确认并入库 | id=%s", candidate_id)
     return {"id": candidate_id, "status": "confirmed"}
 
 
