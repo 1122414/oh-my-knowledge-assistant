@@ -47,7 +47,7 @@ async def fetch_all_sources() -> dict[str, Any]:
                     session.merge(raw)
 
                 config.last_fetched_at = datetime.utcnow()
-                session.add(config)
+                session.merge(config)
                 session.commit()
 
             total_fetched += len(raw_items)

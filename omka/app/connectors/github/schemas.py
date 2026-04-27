@@ -12,10 +12,10 @@ class GitHubRepoData(BaseModel):
 
     full_name: str
     name: str
-    owner_login: str
+    owner_login: str | None = None
 
     html_url: str
-    api_url: str
+    api_url: str | None = None
 
     description: str | None = None
     topics: list[str] = []
@@ -55,7 +55,7 @@ class GitHubReleaseData(BaseModel):
     body: str | None = None
 
     html_url: str
-    api_url: str
+    api_url: str | None = None
 
     author_login: str | None = None
 

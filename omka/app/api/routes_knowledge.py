@@ -26,7 +26,7 @@ async def list_knowledge():
         ]
 
 
-@router.get("/{item_id}")
+@router.get("/{item_id:path}")
 async def get_knowledge(item_id: str):
     with get_session() as session:
         item = session.get(KnowledgeItem, item_id)
@@ -40,7 +40,7 @@ async def get_knowledge(item_id: str):
             "content": item.content,
             "summary": item.summary,
             "tags": item.tags,
-            "metadata": item.metadata,
+            "item_metadata": item.item_metadata,
             "created_at": item.created_at,
         }
 
@@ -55,7 +55,7 @@ async def create_knowledge(data: dict[str, Any]):
     return {"id": item.id, "message": "知识条目已创建"}
 
 
-@router.delete("/{item_id}")
+@router.delete("/{item_id:path}")
 async def delete_knowledge(item_id: str):
     with get_session() as session:
         item = session.get(KnowledgeItem, item_id)
@@ -67,7 +67,7 @@ async def delete_knowledge(item_id: str):
     return {"id": item_id, "message": "知识条目已删除"}
 
 
-@router.post("/{item_id}/feedback")
+@router.post("/{item_id:path}/feedback")
 async def feedback_knowledge(item_id: str, data: dict[str, Any]):
     feedback_type = data.get("feedback_type", "not_interested")
     with get_session() as session:

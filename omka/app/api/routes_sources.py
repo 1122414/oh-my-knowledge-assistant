@@ -109,7 +109,7 @@ async def run_source(source_id: str):
             session.merge(raw)
 
         config.last_fetched_at = datetime.utcnow()
-        session.add(config)
+        session.merge(config)
         session.commit()
 
     logger.info("手动运行数据源 | id=%s | 抓取=%d 条", source_id, len(raw_items))

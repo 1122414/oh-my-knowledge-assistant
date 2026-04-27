@@ -40,7 +40,7 @@ async def generate_digest() -> dict[str, Any]:
                     candidate.summary = result["summary"]
                     candidate.recommendation_reason = result["recommendation_reason"]
                     with get_session() as session:
-                        session.add(candidate)
+                        session.merge(candidate)
                         session.commit()
 
             digest_items.append({

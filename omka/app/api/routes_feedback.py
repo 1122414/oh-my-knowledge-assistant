@@ -35,7 +35,7 @@ async def list_candidates(status: str | None = None):
         ]
 
 
-@router.post("/{candidate_id}/confirm")
+@router.post("/{candidate_id:path}/confirm")
 async def confirm_candidate(candidate_id: str):
     from omka.app.storage.db import KnowledgeItem, NormalizedItem
     from omka.app.storage.markdown_store import save_knowledge_markdown
@@ -58,7 +58,7 @@ async def confirm_candidate(candidate_id: str):
             content=normalized.content,
             summary=candidate.summary,
             tags=normalized.tags,
-            metadata=normalized.metadata,
+            item_metadata=normalized.item_metadata,
         )
         session.merge(knowledge)
 
@@ -84,7 +84,7 @@ async def confirm_candidate(candidate_id: str):
     return {"id": candidate_id, "status": "confirmed"}
 
 
-@router.post("/{candidate_id}/ignore")
+@router.post("/{candidate_id:path}/ignore")
 async def ignore_candidate(candidate_id: str):
     with get_session() as session:
         candidate = session.get(CandidateItem, candidate_id)
@@ -97,7 +97,7 @@ async def ignore_candidate(candidate_id: str):
     return {"id": candidate_id, "status": "ignored"}
 
 
-@router.post("/{candidate_id}/feedback")
+@router.post("/{candidate_id:path}/feedback")
 async def feedback_candidate(candidate_id: str, data: dict[str, Any]):
     from omka.app.storage.db import UserFeedback
 

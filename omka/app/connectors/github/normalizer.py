@@ -4,9 +4,24 @@ from typing import Any
 from omka.app.connectors.github.schemas import GitHubReleaseData, GitHubRepoData
 
 
+def _extract_owner_login(raw: dict[str, Any]) -> str | None:
+    """从原始数据中提取仓库所有者登录名"""
+    if "owner_login" in raw:
+        return raw["owner_login"]
+    owner = raw.get("owner")
+    if isinstance(owner, dict):
+        return owner.get("login")
+    return None
+
+
 def normalize_repo(raw: dict[str, Any], source_id: str, search_query: str | None = None) -> dict[str, Any]:
     """将 GitHub repo 原始数据转换为 NormalizedItem"""
-    repo = GitHubRepoData.model_validate(raw)
+    data = dict(raw)
+    if "owner_login" not in data:
+        data["owner_login"] = _extract_owner_login(raw)
+    if "api_url" not in data:
+        data["api_url"] = data.get("url")
+    repo = GitHubRepoData.model_validate(data)
     if search_query:
         repo.search_query = search_query
         repo.search_score = raw.get("score")
@@ -35,7 +50,7 @@ def normalize_repo(raw: dict[str, Any], source_id: str, search_query: str | None
         "updated_at": repo.updated_at,
         "fetched_at": datetime.utcnow(),
         "tags": repo.topics + ([repo.language] if repo.language else []),
-        "metadata": {
+        "item_metadata": {
             "stars": repo.stargazers_count,
             "forks": repo.forks_count,
             "language": repo.language,
@@ -49,7 +64,10 @@ def normalize_repo(raw: dict[str, Any], source_id: str, search_query: str | None
 
 def normalize_release(raw: dict[str, Any], repo_full_name: str, source_id: str) -> dict[str, Any]:
     """将 GitHub release 原始数据转换为 NormalizedItem"""
-    release = GitHubReleaseData.model_validate({**raw, "repo_full_name": repo_full_name})
+    data = {**raw, "repo_full_name": repo_full_name}
+    if "api_url" not in data:
+        data["api_url"] = data.get("url")
+    release = GitHubReleaseData.model_validate(data)
 
     return {
         "id": f"github:release:{repo_full_name}:{release.tag_name}",
@@ -65,7 +83,7 @@ def normalize_release(raw: dict[str, Any], repo_full_name: str, source_id: str) 
         "updated_at": release.created_at,
         "fetched_at": datetime.utcnow(),
         "tags": ["release", repo_full_name],
-        "metadata": {
+        "item_metadata": {
             "tag_name": release.tag_name,
             "draft": release.draft,
             "prerelease": release.prerelease,
@@ -75,7 +93,12 @@ def normalize_release(raw: dict[str, Any], repo_full_name: str, source_id: str) 
 
 def normalize_search_repo(raw: dict[str, Any], source_id: str, search_query: str) -> dict[str, Any]:
     """将 GitHub 搜索结果的 repo 转换为 NormalizedItem"""
-    repo = GitHubRepoData.model_validate(raw)
+    data = dict(raw)
+    if "owner_login" not in data:
+        data["owner_login"] = _extract_owner_login(raw)
+    if "api_url" not in data:
+        data["api_url"] = data.get("url")
+    repo = GitHubRepoData.model_validate(data)
     repo.search_query = search_query
     repo.search_score = raw.get("score")
 
@@ -101,7 +124,7 @@ def normalize_search_repo(raw: dict[str, Any], source_id: str, search_query: str
         "updated_at": repo.updated_at,
         "fetched_at": datetime.utcnow(),
         "tags": repo.topics + ([repo.language] if repo.language else []),
-        "metadata": {
+        "item_metadata": {
             "stars": repo.stargazers_count,
             "forks": repo.forks_count,
             "language": repo.language,
