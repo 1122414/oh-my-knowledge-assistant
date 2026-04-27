@@ -59,6 +59,7 @@ async def health_check():
     }
 
 
-from omka.app.api import routes_feedback, routes_sources
+from omka.app.api import routes_digest, routes_feedback, routes_sources
 app.include_router(routes_sources.router, prefix="/sources", tags=["信息源"])
 app.include_router(routes_feedback.router, prefix="/candidates", tags=["候选池"])
+app.include_router(routes_digest.router, prefix="/digests", tags=["每日简报"])
