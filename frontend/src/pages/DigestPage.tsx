@@ -1,11 +1,137 @@
+import { Bookmark, EyeOff, ThumbsDown, Clock, Loader2, AlertCircle, ExternalLink, Newspaper } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
+import { useCandidates } from "@/hooks/use-candidates"
 
 export function DigestPage() {
+  const { candidates, loading, actionLoading, error, handleAction } = useCandidates()
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader title="Digest" description="每日推荐内容" />
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <p className="text-muted-foreground">Digest page placeholder</p>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {candidates.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
+            <Newspaper className="mx-auto h-12 w-12 text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground">暂无推荐内容，请先运行一次抓取任务</p>
+          </div>
+        ) : (
+          candidates.map((candidate) => (
+            <div
+              key={candidate.id}
+              className="rounded-2xl border border-border bg-card p-6 shadow-sm"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      {candidate.item_type}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      分数: {candidate.score.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <a
+                    href={candidate.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-lg font-semibold hover:text-primary"
+                  >
+                    {candidate.title}
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+
+                  {candidate.summary && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {candidate.summary}
+                    </p>
+                  )}
+
+                  {candidate.recommendation_reason && (
+                    <div className="mt-3 rounded-lg bg-accent/50 p-3">
+                      <p className="text-sm">
+                        <span className="font-medium">推荐理由: </span>
+                        {candidate.recommendation_reason}
+                      </p>
+                    </div>
+                  )}
+
+                  {(candidate.matched_interests.length > 0 || candidate.matched_projects.length > 0) && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {candidate.matched_interests.map((interest) => (
+                        <span
+                          key={interest}
+                          className="rounded-md bg-secondary px-2 py-0.5 text-xs"
+                        >
+                          {interest}
+                        </span>
+                      ))}
+                      {candidate.matched_projects.map((project) => (
+                        <span
+                          key={project}
+                          className="rounded-md bg-secondary px-2 py-0.5 text-xs"
+                        >
+                          {project}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => handleAction(candidate.id, "save")}
+                  disabled={actionLoading === candidate.id}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  <Bookmark className="h-3.5 w-3.5" />
+                  收藏
+                </button>
+                <button
+                  onClick={() => handleAction(candidate.id, "ignore")}
+                  disabled={actionLoading === candidate.id}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                  忽略
+                </button>
+                <button
+                  onClick={() => handleAction(candidate.id, "dislike")}
+                  disabled={actionLoading === candidate.id}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                  不感兴趣
+                </button>
+                <button
+                  onClick={() => handleAction(candidate.id, "readLater")}
+                  disabled={actionLoading === candidate.id}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  稍后阅读
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   )

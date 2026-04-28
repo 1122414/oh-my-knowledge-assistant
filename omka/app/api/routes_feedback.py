@@ -97,6 +97,32 @@ async def ignore_candidate(candidate_id: str):
     return {"id": candidate_id, "status": "ignored"}
 
 
+@router.post("/{candidate_id:path}/dislike")
+async def dislike_candidate(candidate_id: str):
+    with get_session() as session:
+        candidate = session.get(CandidateItem, candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail="候选条目不存在")
+        candidate.status = "disliked"
+        session.add(candidate)
+        session.commit()
+        logger.info("候选条目已标记不感兴趣 | id=%s", candidate_id)
+    return {"id": candidate_id, "status": "disliked"}
+
+
+@router.post("/{candidate_id:path}/read-later")
+async def read_later_candidate(candidate_id: str):
+    with get_session() as session:
+        candidate = session.get(CandidateItem, candidate_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail="候选条目不存在")
+        candidate.status = "read_later"
+        session.add(candidate)
+        session.commit()
+        logger.info("候选条目已标记稍后阅读 | id=%s", candidate_id)
+    return {"id": candidate_id, "status": "read_later"}
+
+
 @router.post("/{candidate_id:path}/feedback")
 async def feedback_candidate(candidate_id: str, data: dict[str, Any]):
     from omka.app.storage.db import UserFeedback
