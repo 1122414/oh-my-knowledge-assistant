@@ -84,43 +84,31 @@ async def confirm_candidate(candidate_id: str):
     return {"id": candidate_id, "status": "confirmed"}
 
 
-@router.post("/{candidate_id:path}/ignore")
-async def ignore_candidate(candidate_id: str):
+def _set_candidate_status(candidate_id: str, status: str, log_msg: str) -> dict[str, str]:
     with get_session() as session:
         candidate = session.get(CandidateItem, candidate_id)
         if not candidate:
             raise HTTPException(status_code=404, detail="候选条目不存在")
-        candidate.status = "ignored"
+        candidate.status = status
         session.add(candidate)
         session.commit()
-        logger.info("候选条目已忽略 | id=%s", candidate_id)
-    return {"id": candidate_id, "status": "ignored"}
+        logger.info(log_msg, candidate_id)
+    return {"id": candidate_id, "status": status}
+
+
+@router.post("/{candidate_id:path}/ignore")
+async def ignore_candidate(candidate_id: str):
+    return _set_candidate_status(candidate_id, "ignored", "候选条目已忽略 | id=%s")
 
 
 @router.post("/{candidate_id:path}/dislike")
 async def dislike_candidate(candidate_id: str):
-    with get_session() as session:
-        candidate = session.get(CandidateItem, candidate_id)
-        if not candidate:
-            raise HTTPException(status_code=404, detail="候选条目不存在")
-        candidate.status = "disliked"
-        session.add(candidate)
-        session.commit()
-        logger.info("候选条目已标记不感兴趣 | id=%s", candidate_id)
-    return {"id": candidate_id, "status": "disliked"}
+    return _set_candidate_status(candidate_id, "disliked", "候选条目已标记不感兴趣 | id=%s")
 
 
 @router.post("/{candidate_id:path}/read-later")
 async def read_later_candidate(candidate_id: str):
-    with get_session() as session:
-        candidate = session.get(CandidateItem, candidate_id)
-        if not candidate:
-            raise HTTPException(status_code=404, detail="候选条目不存在")
-        candidate.status = "read_later"
-        session.add(candidate)
-        session.commit()
-        logger.info("候选条目已标记稍后阅读 | id=%s", candidate_id)
-    return {"id": candidate_id, "status": "read_later"}
+    return _set_candidate_status(candidate_id, "read_later", "候选条目已标记稍后阅读 | id=%s")
 
 
 @router.post("/{candidate_id:path}/feedback")

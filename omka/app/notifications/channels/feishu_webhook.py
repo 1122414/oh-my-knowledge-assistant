@@ -6,10 +6,22 @@ from typing import Any
 
 import httpx
 
-from omka.app.core.config import settings
 from omka.app.core.logging import logger
 from omka.app.core.settings_service import get_setting
 from omka.app.notifications.base import NotificationChannel, SendResult
+
+
+def build_feishu_signature(secret: str) -> tuple[str, str]:
+    timestamp = str(int(time.time()))
+    string_to_sign = f"{timestamp}\n{secret}"
+    sign = base64.b64encode(
+        hmac.new(
+            secret.encode("utf-8"),
+            string_to_sign.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).digest()
+    ).decode("utf-8")
+    return timestamp, sign
 
 
 class FeishuWebhookChannel(NotificationChannel):
@@ -35,15 +47,7 @@ class FeishuWebhookChannel(NotificationChannel):
 
         # 添加签名
         if secret:
-            timestamp = str(int(time.time()))
-            string_to_sign = f"{timestamp}\n{secret}"
-            sign = base64.b64encode(
-                hmac.new(
-                    secret.encode("utf-8"),
-                    string_to_sign.encode("utf-8"),
-                    digestmod=hashlib.sha256,
-                ).digest()
-            ).decode("utf-8")
+            timestamp, sign = build_feishu_signature(secret)
             payload["timestamp"] = timestamp
             payload["sign"] = sign
 
@@ -89,8 +93,6 @@ class FeishuWebhookChannel(NotificationChannel):
         phases = digest.get("phases", {})
         fetch = phases.get("fetch", {})
         dedup = phases.get("dedup", {})
-
-        top_n = get_setting("feishu_push_digest_top_n", 6)
 
         lines = [
             "📌 OMKA 今日 GitHub 知识简报",

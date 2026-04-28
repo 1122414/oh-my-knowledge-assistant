@@ -6,7 +6,7 @@ from sqlmodel import select
 from omka.app.connectors.registry import ConnectorRegistry
 from omka.app.core.logging import logger
 from omka.app.storage.db import FetchRun, SourceConfig, get_session
-from omka.app.storage.repositories import compute_raw_item_id, save_raw_items
+from omka.app.storage.repositories import save_raw_items
 
 
 async def fetch_all_sources() -> dict[str, Any]:

@@ -1,5 +1,6 @@
+import asyncio
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from omka.app.core.logging import logger
 from omka.app.pipeline.cleaner import clean_and_normalize
@@ -10,55 +11,41 @@ from omka.app.pipeline.ranker import rank_candidates
 from omka.app.storage.db import FetchRun, get_session
 
 
+async def _run_phase(name: str, fn: Callable, result: dict, metric_key: str) -> None:
+    try:
+        if asyncio.iscoroutinefunction(fn):
+            phase_result = await fn()
+        else:
+            phase_result = fn()
+        result["phases"][name] = phase_result
+        logger.info("[%s] 完成 | %s=%s", name, metric_key, phase_result.get(metric_key, "?"))
+    except Exception as e:
+        logger.error("[%s] 失败 | error=%s", name, e)
+        result["phases"][name] = {"status": "failed", "error": str(e)}
+
+
 async def run_daily_job() -> dict[str, Any]:
     logger.info("=" * 50)
     logger.info("开始执行每日任务 | %s", datetime.now().isoformat())
     logger.info("=" * 50)
 
-    result = {"phases": {}}
+    result: dict[str, Any] = {"phases": {}}
     run_id: int | None = None
 
     try:
         fetch_result = await fetch_all_sources()
         result["phases"]["fetch"] = fetch_result
         run_id = fetch_result.get("run_id")
-        logger.info("[Phase 1] 抓取完成 | fetched=%d", fetch_result.get("fetched_count", 0))
+        logger.info("[fetch] 完成 | fetched=%d", fetch_result.get("fetched_count", 0))
     except Exception as e:
-        logger.error("[Phase 1] 抓取失败 | error=%s", e)
+        logger.error("[fetch] 失败 | error=%s", e)
         result["phases"]["fetch"] = {"status": "failed", "error": str(e)}
         return result
 
-    try:
-        clean_result = clean_and_normalize()
-        result["phases"]["clean"] = clean_result
-        logger.info("[Phase 2] 规范化完成 | normalized=%d", clean_result.get("normalized_count", 0))
-    except Exception as e:
-        logger.error("[Phase 2] 规范化失败 | error=%s", e)
-        result["phases"]["clean"] = {"status": "failed", "error": str(e)}
-
-    try:
-        dedup_result = dedup_and_create_candidates()
-        result["phases"]["dedup"] = dedup_result
-        logger.info("[Phase 3] 去重完成 | candidates=%d", dedup_result.get("candidate_count", 0))
-    except Exception as e:
-        logger.error("[Phase 3] 去重失败 | error=%s", e)
-        result["phases"]["dedup"] = {"status": "failed", "error": str(e)}
-
-    try:
-        rank_result = rank_candidates()
-        result["phases"]["rank"] = rank_result
-        logger.info("[Phase 4] 排序完成 | ranked=%d", rank_result.get("ranked_count", 0))
-    except Exception as e:
-        logger.error("[Phase 4] 排序失败 | error=%s", e)
-        result["phases"]["rank"] = {"status": "failed", "error": str(e)}
-
-    try:
-        digest_result = await generate_digest()
-        result["phases"]["digest"] = digest_result
-        logger.info("[Phase 5] 简报完成 | path=%s", digest_result.get("digest_path"))
-    except Exception as e:
-        logger.error("[Phase 5] 简报生成失败 | error=%s", e)
-        result["phases"]["digest"] = {"status": "failed", "error": str(e)}
+    await _run_phase("clean", clean_and_normalize, result, "normalized_count")
+    await _run_phase("dedup", dedup_and_create_candidates, result, "candidate_count")
+    await _run_phase("rank", rank_candidates, result, "ranked_count")
+    await _run_phase("digest", generate_digest, result, "item_count")
 
     if run_id:
         try:

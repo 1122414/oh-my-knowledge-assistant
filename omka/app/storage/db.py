@@ -5,7 +5,6 @@
 """
 
 from datetime import datetime
-from typing import Literal
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Session, SQLModel, create_engine

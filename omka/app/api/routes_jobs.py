@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter
 from sqlmodel import func, select
 
-from omka.app.core.logging import logger
 from omka.app.services.daily_job import run_daily_job
 from omka.app.storage.db import CandidateItem, FetchRun, KnowledgeItem, NotificationRun, get_session
 

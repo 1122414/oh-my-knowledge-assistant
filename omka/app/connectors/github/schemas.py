@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class GitHubRepoData(BaseModel):
@@ -64,19 +64,3 @@ class GitHubReleaseData(BaseModel):
     created_at: datetime | None = None
     published_at: datetime | None = None
 
-
-class GitHubSearchItem(BaseModel):
-    """GitHub 搜索API返回的仓库条目"""
-
-    id: int
-    full_name: str
-    html_url: str
-    description: str | None = None
-    topics: list[str] = []
-    language: str | None = None
-    stargazers_count: int = 0
-    forks_count: int = 0
-    created_at: datetime
-    updated_at: datetime
-    pushed_at: datetime | None = None
-    score: float | None = None

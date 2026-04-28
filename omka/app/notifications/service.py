@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Any
 
-from omka.app.core.config import settings
 from omka.app.core.logging import logger
 from omka.app.core.settings_service import get_setting
 from omka.app.notifications.base import SendResult

@@ -8,7 +8,6 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from omka.app.core.config import settings as env_settings
 from omka.app.core.logging import logger
 from omka.app.core.settings_service import get_all_settings, get_setting, set_setting
 
@@ -156,11 +155,9 @@ async def test_llm():
 @router.post("/test-feishu", response_model=SettingsTestResponse)
 async def test_feishu():
     """测试飞书 Webhook 是否可用"""
-    import time
-    import base64
-    import hmac
-    import hashlib
     import httpx
+
+    from omka.app.notifications.channels.feishu_webhook import build_feishu_signature
 
     webhook_url = get_setting("feishu_webhook_url", "")
     secret = get_setting("feishu_webhook_secret", "")
@@ -177,15 +174,7 @@ async def test_feishu():
 
         # 如果配置了 secret，添加签名
         if secret:
-            timestamp = str(int(time.time()))
-            string_to_sign = f"{timestamp}\n{secret}"
-            sign = base64.b64encode(
-                hmac.new(
-                    secret.encode("utf-8"),
-                    string_to_sign.encode("utf-8"),
-                    digestmod=hashlib.sha256,
-                ).digest()
-            ).decode("utf-8")
+            timestamp, sign = build_feishu_signature(secret)
             payload["timestamp"] = timestamp
             payload["sign"] = sign
 

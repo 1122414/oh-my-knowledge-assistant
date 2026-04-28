@@ -1,8 +1,5 @@
-from typing import Any
-
 from fastapi import APIRouter
 
-from omka.app.core.logging import logger
 from omka.app.notifications.service import notification_service
 from omka.app.services.daily_job import run_daily_job
 from omka.app.storage.db import NotificationRun, get_session
