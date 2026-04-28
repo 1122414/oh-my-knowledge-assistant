@@ -112,6 +112,16 @@ class Settings(BaseSettings):
     knowledge_dir: Path = Field(default=DATA_DIR / "knowledge", description="知识库目录")
 
     # ===========================================
+    # 飞书 Webhook 配置
+    # ===========================================
+    feishu_webhook_enabled: bool = Field(default=False, description="是否启用飞书 Webhook")
+    feishu_webhook_url: str = Field(default="", description="飞书自定义机器人 Webhook URL")
+    feishu_webhook_secret: str = Field(default="", description="飞书自定义机器人 Secret")
+    feishu_push_digest_top_n: int = Field(default=6, description="飞书推送 Digest Top N")
+    feishu_request_timeout_seconds: int = Field(default=10, description="飞书请求超时（秒）")
+    feishu_max_retries: int = Field(default=3, description="飞书推送最大重试次数")
+
+    # ===========================================
     # 日志配置
     # ===========================================
     log_level: str = Field(default="INFO", description="日志级别")

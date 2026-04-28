@@ -65,15 +65,20 @@ class FetchRun(BaseSchema, table=True):
     __tablename__ = "fetch_runs"
 
     id: int | None = Field(default=None, primary_key=True)
-    job_type: str = Field(description="任务类型，如 github_daily")
+    job_type: str = Field(default="github_daily", description="任务类型: github_daily/manual_run/digest_generation/feishu_push")
     started_at: datetime = Field(default_factory=datetime.utcnow, description="开始时间")
     finished_at: datetime | None = Field(default=None, description="结束时间")
     status: str = Field(default="running", description="状态: running/success/partial_success/failed")
-    fetched_count: int = Field(default=0, description="抓取条目数")
+    fetched_count: int = Field(default=0, description="抓取条目数（兼容旧数据）")
+    fetched_repo_count: int = Field(default=0, description="抓取仓库数")
+    fetched_release_count: int = Field(default=0, description="抓取 Release 数")
+    fetched_search_result_count: int = Field(default=0, description="抓取搜索结果数")
     normalized_count: int = Field(default=0, description="规范化条目数")
     candidate_count: int = Field(default=0, description="候选条目数")
+    digest_item_count: int = Field(default=0, description="Digest 条目数")
     error_count: int = Field(default=0, description="错误数")
     error_message: str | None = Field(default=None, description="错误信息")
+    metadata_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="额外元数据")
 
 
 # ===========================================
@@ -169,7 +174,7 @@ class CandidateItem(BaseSchema, table=True):
     matched_interests: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="匹配的兴趣")
     matched_projects: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="匹配的项目")
 
-    status: str = Field(default="pending", description="状态: pending/ignored/confirmed")
+    status: str = Field(default="pending", description="状态: pending/confirmed/ignored/disliked/read_later")
 
     created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
@@ -217,6 +222,41 @@ class UserFeedback(BaseSchema, table=True):
     feedback_type: str = Field(description="反馈类型: confirm/ignore/not_interested/read_later")
     notes: str | None = Field(default=None, description="备注")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="反馈时间")
+
+
+# ===========================================
+# 应用配置表（运行时动态配置，优先级高于 .env）
+# ===========================================
+class AppSetting(BaseSchema, table=True):
+    """应用运行时配置，支持 UI 动态修改"""
+
+    __tablename__ = "app_settings"
+
+    key: str = Field(primary_key=True, description="配置键名")
+    value: str = Field(description="配置值（JSON 字符串或纯文本）")
+    is_secret: bool = Field(default=False, description="是否为敏感字段")
+    category: str = Field(default="general", description="分类: general/github/llm/feishu/scheduler")
+    description: str | None = Field(default=None, description="配置说明")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+
+
+# ===========================================
+# 通知推送记录表
+# ===========================================
+class NotificationRun(BaseSchema, table=True):
+    """通知推送运行记录"""
+
+    __tablename__ = "notification_runs"
+
+    id: int | None = Field(default=None, primary_key=True)
+    channel_type: str = Field(description="通知渠道: feishu_webhook/email/telegram")
+    job_id: int | None = Field(default=None, description="关联 FetchRun ID")
+    digest_id: str | None = Field(default=None, description="关联 Digest ID")
+    status: str = Field(default="running", description="状态: success/failed/skipped")
+    sent_at: datetime | None = Field(default=None, description="发送时间")
+    error_message: str | None = Field(default=None, description="错误信息")
+    response_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="渠道响应")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
 
 
 # ===========================================
