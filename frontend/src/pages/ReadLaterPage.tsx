@@ -1,12 +1,47 @@
+import { useState, useEffect } from "react"
 import { Clock, Bookmark, Trash2, Loader2, AlertCircle } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
-import { useCandidates } from "@/hooks/use-candidates"
+import { candidatesApi, type Candidate } from "@/api/candidates"
 
 export function ReadLaterPage() {
-  const { candidates, loading, actionLoading, error, handleAction } = useCandidates()
+  const [items, setItems] = useState<Candidate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  // 过滤出 read_later 状态的候选
-  const readLaterItems = candidates.filter((c) => c.status === "read_later")
+  const fetchItems = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await candidatesApi.getAll("read_later")
+      setItems(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载失败")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchItems()
+  }, [])
+
+  const handleAction = async (id: string, action: "save" | "ignore") => {
+    setActionLoading(id)
+    setError(null)
+    try {
+      if (action === "save") {
+        await candidatesApi.save(id)
+      } else {
+        await candidatesApi.ignore(id)
+      }
+      await fetchItems()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "操作失败")
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -28,13 +63,13 @@ export function ReadLaterPage() {
       )}
 
       <div className="space-y-3">
-        {readLaterItems.length === 0 ? (
+        {items.length === 0 ? (
           <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
             <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
             <p className="mt-4 text-muted-foreground">暂无稍后阅读内容，在 Digest 页面标记后会显示在这里</p>
           </div>
         ) : (
-          readLaterItems.map((item) => (
+          items.map((item) => (
             <div
               key={item.id}
               className="flex items-center justify-between rounded-2xl border border-border bg-card p-5 shadow-sm"
