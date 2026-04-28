@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { AppShell } from "@/components/layout/app-shell"
 import { DashboardPage } from "@/pages/DashboardPage"
+import { OnboardingPage } from "@/pages/OnboardingPage"
 import { SourcesPage } from "@/pages/SourcesPage"
 import { DigestPage } from "@/pages/DigestPage"
 import { KnowledgePage } from "@/pages/KnowledgePage"
@@ -13,6 +14,7 @@ function App() {
     <BrowserRouter>
       <AppShell>
         <Routes>
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/" element={<DashboardPage />} />
           <Route path="/sources" element={<SourcesPage />} />
           <Route path="/digest" element={<DigestPage />} />
