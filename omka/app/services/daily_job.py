@@ -73,6 +73,18 @@ async def run_daily_job() -> dict[str, Any]:
         except Exception as e:
             logger.error("更新 FetchRun 失败 | run_id=%s | error=%s", run_id, e)
 
+    # 发送飞书通知（失败不影响主任务）
+    try:
+        from omka.app.notifications.service import notification_service
+        notification_results = await notification_service.send_digest(result)
+        for channel, notif_result in notification_results.items():
+            if notif_result.success:
+                logger.info("[%s] 通知发送成功", channel)
+            else:
+                logger.warning("[%s] 通知发送失败 | %s", channel, notif_result.message)
+    except Exception as e:
+        logger.error("通知发送异常 | error=%s", e)
+
     logger.info("=" * 50)
     logger.info("每日任务执行完毕")
     logger.info("=" * 50)
