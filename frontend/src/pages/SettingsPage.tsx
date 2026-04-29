@@ -380,6 +380,107 @@ export function SettingsPage() {
           />
         </div>
       </Section>
+
+      <Section
+        title="Agent"
+        icon={Bot}
+        keys={[
+          "omka_agent_chat_enabled",
+          "omka_agent_provider",
+          "omka_agent_model",
+          "omka_agent_temperature",
+          "omka_agent_timeout_seconds",
+          "omka_agent_max_recent_messages",
+          "omka_agent_max_digest_items",
+          "omka_agent_max_knowledge_items",
+          "omka_agent_max_candidate_items",
+          "omka_agent_max_context_chars",
+        ]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="启用 Agent 对话"
+            keyName="omka_agent_chat_enabled"
+            placeholder="true / false"
+            value={getValue("omka_agent_chat_enabled")}
+            onChange={handleChange}
+          />
+          <Field
+            label="Agent Provider"
+            keyName="omka_agent_provider"
+            placeholder="openai / qwen / ollama"
+            help="留空则使用全局 LLM Provider"
+            value={getValue("omka_agent_provider")}
+            onChange={handleChange}
+          />
+          <Field
+            label="Agent Model"
+            keyName="omka_agent_model"
+            placeholder="gpt-4o-mini"
+            help="留空则使用全局 LLM Model"
+            value={getValue("omka_agent_model")}
+            onChange={handleChange}
+          />
+          <Field
+            label="Temperature"
+            keyName="omka_agent_temperature"
+            type="number"
+            placeholder="0.2"
+            value={getValue("omka_agent_temperature")}
+            onChange={handleChange}
+          />
+          <Field
+            label="超时（秒）"
+            keyName="omka_agent_timeout_seconds"
+            type="number"
+            placeholder="60"
+            value={getValue("omka_agent_timeout_seconds")}
+            onChange={handleChange}
+          />
+          <Field
+            label="最大最近消息数"
+            keyName="omka_agent_max_recent_messages"
+            type="number"
+            placeholder="6"
+            value={getValue("omka_agent_max_recent_messages")}
+            onChange={handleChange}
+          />
+          <Field
+            label="最大 Digest 上下文"
+            keyName="omka_agent_max_digest_items"
+            type="number"
+            placeholder="5"
+            value={getValue("omka_agent_max_digest_items")}
+            onChange={handleChange}
+          />
+          <Field
+            label="最大 Knowledge 上下文"
+            keyName="omka_agent_max_knowledge_items"
+            type="number"
+            placeholder="5"
+            value={getValue("omka_agent_max_knowledge_items")}
+            onChange={handleChange}
+          />
+          <Field
+            label="最大 Candidate 上下文"
+            keyName="omka_agent_max_candidate_items"
+            type="number"
+            placeholder="5"
+            value={getValue("omka_agent_max_candidate_items")}
+            onChange={handleChange}
+          />
+          <Field
+            label="最大上下文字数"
+            keyName="omka_agent_max_context_chars"
+            type="number"
+            placeholder="12000"
+            value={getValue("omka_agent_max_context_chars")}
+            onChange={handleChange}
+          />
+        </div>
+      </Section>
     </div>
   )
 }

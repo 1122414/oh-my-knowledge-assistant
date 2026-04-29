@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from omka.app.core.logging import logger
@@ -6,7 +6,8 @@ from omka.app.core.settings_service import get_setting
 from omka.app.integrations.feishu.config import FeishuConfig
 from omka.app.integrations.feishu.event_handler import FeishuEventHandler
 from omka.app.integrations.feishu.service import feishu_notification_service
-from omka.app.storage.db import FeishuEventLog, FeishuMessageRun, get_session
+from omka.app.storage.db import FeishuDirectConversation, FeishuEventLog, FeishuMessageRun, get_session
+from sqlmodel import select
 
 router = APIRouter()
 
@@ -152,3 +153,85 @@ async def handle_feishu_event(request: Request):
     except Exception as e:
         logger.error("处理飞书事件失败 | error=%s", e)
         return {"code": -1, "msg": str(e)}
+
+
+@router.get("/status")
+async def get_feishu_status():
+    config = _build_full_config()
+
+    with get_session() as session:
+        conversation_count = session.exec(
+            select(FeishuDirectConversation).where(FeishuDirectConversation.enabled == True)
+        ).all()
+        latest_event = session.exec(
+            select(FeishuEventLog).order_by(FeishuEventLog.created_at.desc())
+        ).first()
+        latest_message = session.exec(
+            select(FeishuMessageRun).order_by(FeishuMessageRun.created_at.desc())
+        ).first()
+
+    return {
+        "enabled": config.enabled,
+        "configured": config.is_configured(),
+        "agent_enabled": config.agent_conversation_enabled,
+        "bound_users": len(conversation_count),
+        "latest_event": {
+            "event_type": latest_event.event_type if latest_event else None,
+            "created_at": latest_event.created_at if latest_event else None,
+        } if latest_event else None,
+        "latest_message": {
+            "status": latest_message.status if latest_message else None,
+            "message_type": latest_message.message_type if latest_message else None,
+            "created_at": latest_message.created_at if latest_message else None,
+        } if latest_message else None,
+    }
+
+
+@router.get("/conversations")
+async def list_conversations():
+    with get_session() as session:
+        conversations = session.exec(
+            select(FeishuDirectConversation).order_by(FeishuDirectConversation.created_at.desc())
+        ).all()
+        return [
+            {
+                "id": c.id,
+                "open_id": c.open_id[:8] + "****" if len(c.open_id) > 8 else c.open_id,
+                "chat_id": c.chat_id[:8] + "****" if len(c.chat_id) > 8 else c.chat_id,
+                "enabled": c.enabled,
+                "is_default": c.is_default,
+                "last_message_at": c.last_message_at,
+                "created_at": c.created_at,
+            }
+            for c in conversations
+        ]
+
+
+@router.post("/conversations/{conversation_id}/disable")
+async def disable_conversation(conversation_id: int):
+    with get_session() as session:
+        conversation = session.get(FeishuDirectConversation, conversation_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="会话不存在")
+
+        conversation.enabled = False
+        session.add(conversation)
+        session.commit()
+
+    return {"message": "已解绑", "id": conversation_id}
+
+
+@router.post("/test-credentials", response_model=FeishuTestResponse)
+async def test_credentials():
+    from omka.app.integrations.feishu.auth import FeishuAuthService
+
+    config = _build_full_config()
+    if not config.is_configured():
+        return FeishuTestResponse(success=False, message="飞书凭证未配置")
+
+    try:
+        auth_service = FeishuAuthService(config)
+        token = await auth_service.get_tenant_access_token()
+        return FeishuTestResponse(success=True, message="凭证验证成功")
+    except Exception as e:
+        return FeishuTestResponse(success=False, message=f"凭证验证失败: {str(e)}")
