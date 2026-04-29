@@ -29,14 +29,9 @@ async def get_settings():
 
 @router.put("")
 async def update_settings(data: dict[str, Any]):
-    """批量更新配置
-
-    Args:
-        data: 配置字典，key-value 形式
-    """
+    """批量更新配置"""
     updated = []
     for key, value in data.items():
-        # 不允许修改只读配置
         if key in {"app_version"}:
             continue
         set_setting(key, value)
@@ -44,17 +39,6 @@ async def update_settings(data: dict[str, Any]):
 
     logger.info("批量更新配置 | keys=%s", ", ".join(updated))
     return {"updated": updated, "message": f"已更新 {len(updated)} 项配置"}
-
-
-@router.post("/{key}")
-async def update_setting(key: str, data: dict[str, Any]):
-    """更新单个配置"""
-    value = data.get("value")
-    if value is None:
-        raise HTTPException(status_code=400, detail="缺少 value 字段")
-
-    set_setting(key, value)
-    return {"key": key, "message": "配置已更新"}
 
 
 @router.post("/test-github", response_model=SettingsTestResponse)
@@ -108,7 +92,6 @@ async def test_llm():
     try:
         async with httpx.AsyncClient() as client:
             if provider == "ollama":
-                # Ollama 测试
                 response = await client.get(
                     f"{base_url}/api/tags",
                     timeout=10,
@@ -120,7 +103,6 @@ async def test_llm():
                         success=False, message=f"Ollama 服务不可用: HTTP {response.status_code}"
                     )
             else:
-                # OpenAI / Qwen 测试
                 response = await client.post(
                     f"{base_url}/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}"},
@@ -151,3 +133,14 @@ async def test_feishu():
 
     result = await feishu_notification_service.send_test_message()
     return SettingsTestResponse(success=result.success, message=result.message)
+
+
+@router.post("/{key}")
+async def update_setting(key: str, data: dict[str, Any]):
+    """更新单个配置"""
+    value = data.get("value")
+    if value is None:
+        raise HTTPException(status_code=400, detail="缺少 value 字段")
+
+    set_setting(key, value)
+    return {"key": key, "message": "配置已更新"}
