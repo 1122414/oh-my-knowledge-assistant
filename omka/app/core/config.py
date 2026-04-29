@@ -112,14 +112,43 @@ class Settings(BaseSettings):
     knowledge_dir: Path = Field(default=DATA_DIR / "knowledge", description="知识库目录")
 
     # ===========================================
-    # 飞书 Webhook 配置
+    # 飞书应用机器人配置
     # ===========================================
-    feishu_webhook_enabled: bool = Field(default=False, description="是否启用飞书 Webhook")
-    feishu_webhook_url: str = Field(default="", description="飞书自定义机器人 Webhook URL")
-    feishu_webhook_secret: str = Field(default="", description="飞书自定义机器人 Secret")
-    feishu_push_digest_top_n: int = Field(default=6, description="飞书推送 Digest Top N")
+    feishu_enabled: bool = Field(default=False, description="是否启用飞书应用机器人")
+    feishu_app_id: str = Field(default="", description="飞书应用 App ID")
+    feishu_app_secret: str = Field(default="", description="飞书应用 App Secret")
+    feishu_verification_token: str = Field(default="", description="事件订阅验证 Token")
+    feishu_encrypt_key: str = Field(default="", description="事件订阅加密 Key")
+    feishu_api_base_url: str = Field(
+        default="https://open.feishu.cn/open-apis",
+        description="飞书 API 基础 URL",
+    )
     feishu_request_timeout_seconds: int = Field(default=10, description="飞书请求超时（秒）")
-    feishu_max_retries: int = Field(default=3, description="飞书推送最大重试次数")
+    feishu_max_retries: int = Field(default=3, description="飞书最大重试次数")
+    feishu_default_receive_id_type: str = Field(
+        default="chat_id",
+        description="默认接收者类型: chat_id, open_id, user_id, email",
+    )
+    feishu_default_chat_id: str = Field(default="", description="默认群聊 ID")
+    feishu_command_prefix: str = Field(default="/omka", description="命令前缀")
+    feishu_require_mention: bool = Field(default=True, description="群聊中是否需要 @ 机器人")
+    feishu_group_allowlist: str = Field(default="", description="允许的群聊 ID 列表（逗号分隔）")
+    feishu_user_allowlist: str = Field(default="", description="允许的用户 ID 列表（逗号分隔）")
+    feishu_push_digest_enabled: bool = Field(default=True, description="是否推送每日简报")
+    feishu_push_digest_top_n: int = Field(default=6, description="推送简报条目数")
+    feishu_event_callback_path: str = Field(
+        default="/api/integrations/feishu/events",
+        description="事件回调路径",
+    )
+    feishu_public_callback_url: str = Field(default="", description="公开回调 URL")
+    feishu_agent_conversation_enabled: bool = Field(default=False, description="是否启用 Agent 对话")
+    feishu_agent_session_ttl_minutes: int = Field(default=60, description="Agent 会话 TTL（分钟）")
+    feishu_agent_max_message_chars: int = Field(default=4000, description="Agent 消息最大字符数")
+
+    # 废弃的 Webhook 配置（保留兼容性，默认关闭）
+    feishu_webhook_enabled: bool = Field(default=False, description="[已废弃] 是否启用飞书 Webhook")
+    feishu_webhook_url: str = Field(default="", description="[已废弃] 飞书自定义机器人 Webhook URL")
+    feishu_webhook_secret: str = Field(default="", description="[已废弃] 飞书自定义机器人 Secret")
 
     # ===========================================
     # 日志配置

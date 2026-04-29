@@ -62,13 +62,25 @@ async def run_daily_job() -> dict[str, Any]:
 
     # 发送飞书通知（失败不影响主任务）
     try:
-        from omka.app.notifications.service import notification_service
-        notification_results = await notification_service.send_digest(result)
-        for channel, notif_result in notification_results.items():
-            if notif_result.success:
-                logger.info("[%s] 通知发送成功", channel)
+        from omka.app.core.settings_service import get_setting
+        feishu_enabled = get_setting("feishu_enabled", False)
+        push_digest_enabled = get_setting("feishu_push_digest_enabled", True)
+
+        if feishu_enabled and push_digest_enabled:
+            from omka.app.integrations.feishu.service import feishu_notification_service
+            feishu_result = await feishu_notification_service.send_digest(result)
+            if feishu_result.success:
+                logger.info("[feishu] 通知发送成功")
             else:
-                logger.warning("[%s] 通知发送失败 | %s", channel, notif_result.message)
+                logger.warning("[feishu] 通知发送失败 | %s", feishu_result.message)
+        else:
+            from omka.app.notifications.service import notification_service
+            notification_results = await notification_service.send_digest(result)
+            for channel, notif_result in notification_results.items():
+                if notif_result.success:
+                    logger.info("[%s] 通知发送成功", channel)
+                else:
+                    logger.warning("[%s] 通知发送失败 | %s", channel, notif_result.message)
     except Exception as e:
         logger.error("通知发送异常 | error=%s", e)
 

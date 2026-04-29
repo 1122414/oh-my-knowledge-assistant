@@ -6,7 +6,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, text
 from sqlmodel import Field, Session, SQLModel, create_engine
 
 from omka.app.core.config import settings
@@ -248,7 +248,7 @@ class NotificationRun(BaseSchema, table=True):
     __tablename__ = "notification_runs"
 
     id: int | None = Field(default=None, primary_key=True)
-    channel_type: str = Field(description="通知渠道: feishu_webhook/email/telegram")
+    channel_type: str = Field(description="通知渠道: feishu_webhook/feishu_app_bot/email/telegram")
     job_id: int | None = Field(default=None, description="关联 FetchRun ID")
     digest_id: str | None = Field(default=None, description="关联 Digest ID")
     status: str = Field(default="running", description="状态: success/failed/skipped")
@@ -259,11 +259,99 @@ class NotificationRun(BaseSchema, table=True):
 
 
 # ===========================================
+# 飞书 Token 缓存表
+# ===========================================
+class FeishuTokenCache(BaseSchema, table=True):
+    """飞书 tenant_access_token 缓存"""
+
+    __tablename__ = "feishu_token_cache"
+
+    id: int | None = Field(default=None, primary_key=True)
+    token_type: str = Field(default="tenant_access_token", description="Token 类型")
+    access_token: str = Field(description="访问令牌")
+    expires_at: datetime = Field(description="过期时间")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+
+
+# ===========================================
+# 飞书消息发送记录表
+# ===========================================
+class FeishuMessageRun(BaseSchema, table=True):
+    """飞书消息发送记录"""
+
+    __tablename__ = "feishu_message_runs"
+
+    id: int | None = Field(default=None, primary_key=True)
+    message_type: str = Field(description="消息类型: test/digest/reply/command_result")
+    receive_id_type: str = Field(description="接收者类型: chat_id/open_id/user_id/email")
+    receive_id_masked: str = Field(description="接收者 ID（脱敏）")
+    status: str = Field(default="pending", description="状态: success/failed/skipped")
+    message_id: str | None = Field(default=None, description="飞书消息 ID")
+    error_code: str | None = Field(default=None, description="错误码")
+    error_message: str | None = Field(default=None, description="错误信息")
+    request_id: str | None = Field(default=None, description="请求 ID")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+    metadata_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="额外元数据")
+
+
+# ===========================================
+# 飞书事件日志表
+# ===========================================
+class FeishuEventLog(BaseSchema, table=True):
+    """飞书事件接收日志"""
+
+    __tablename__ = "feishu_event_logs"
+
+    id: int | None = Field(default=None, primary_key=True)
+    event_id: str = Field(description="事件 ID")
+    event_type: str = Field(description="事件类型")
+    chat_id: str | None = Field(default=None, description="群聊 ID")
+    sender_id: str | None = Field(default=None, description="发送者 ID")
+    message_id: str | None = Field(default=None, description="消息 ID")
+    message_type: str | None = Field(default=None, description="消息类型")
+    raw_event_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="原始事件数据")
+    handled_status: str = Field(default="received", description="处理状态: received/ignored/routed/failed")
+    error_message: str | None = Field(default=None, description="错误信息")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+
+
+# ===========================================
 # 数据库初始化
 # ===========================================
+def _migrate_fetch_runs(engine) -> None:
+    """迁移 fetch_runs 表，添加缺失的列"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("PRAGMA table_info(fetch_runs)"))
+            existing_columns = {row[1] for row in result}
+
+            columns_to_add = [
+                ("fetched_repo_count", "INTEGER DEFAULT 0"),
+                ("fetched_release_count", "INTEGER DEFAULT 0"),
+                ("fetched_search_result_count", "INTEGER DEFAULT 0"),
+                ("normalized_count", "INTEGER DEFAULT 0"),
+                ("digest_item_count", "INTEGER DEFAULT 0"),
+                ("error_count", "INTEGER DEFAULT 0"),
+                ("error_message", "TEXT"),
+                ("metadata_json", "TEXT DEFAULT '{}'"),
+            ]
+
+            for col_name, col_type in columns_to_add:
+                if col_name not in existing_columns:
+                    conn.execute(text(f"ALTER TABLE fetch_runs ADD COLUMN {col_name} {col_type}"))
+                    logger.info("迁移 fetch_runs 表 | 添加列: %s", col_name)
+
+            conn.commit()
+    except Exception as e:
+        logger.debug("迁移 fetch_runs 表跳过（可能表不存在）| error=%s", e)
+
+
 def init_db() -> None:
     """初始化数据库，创建所有表"""
     SQLModel.metadata.create_all(engine)
+    _migrate_fetch_runs(engine)
     logger.info("数据库初始化完成 | 路径=%s", settings.database_url)
 
 

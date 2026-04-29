@@ -69,7 +69,7 @@ async def health_check():
     }
 
 
-from omka.app.api import routes_digest, routes_feedback, routes_jobs, routes_knowledge, routes_notifications, routes_settings, routes_sources
+from omka.app.api import routes_digest, routes_feishu, routes_feedback, routes_jobs, routes_knowledge, routes_notifications, routes_settings, routes_sources
 app.include_router(routes_sources.router, prefix="/sources", tags=["信息源"])
 app.include_router(routes_feedback.router, prefix="/candidates", tags=["候选池"])
 app.include_router(routes_digest.router, prefix="/digests", tags=["每日简报"])
@@ -77,6 +77,7 @@ app.include_router(routes_knowledge.router, prefix="/knowledge", tags=["知识�
 app.include_router(routes_settings.router, prefix="/settings", tags=["设置"])
 app.include_router(routes_notifications.router, prefix="/notifications", tags=["通知"])
 app.include_router(routes_jobs.router, prefix="/jobs", tags=["任务"])
+app.include_router(routes_feishu.router, prefix="/integrations/feishu", tags=["飞书集成"])
 
 
 if __name__ == "__main__":

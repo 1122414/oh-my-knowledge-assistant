@@ -18,6 +18,9 @@ from omka.app.storage.db import AppSetting, get_session
 SENSITIVE_KEYS = {
     "github_token",
     "llm_api_key",
+    "feishu_app_secret",
+    "feishu_verification_token",
+    "feishu_encrypt_key",
     "feishu_webhook_url",
     "feishu_webhook_secret",
 }
@@ -36,10 +39,30 @@ CATEGORY_MAP = {
     "llm_api_key": "llm",
     "llm_base_url": "llm",
     "llm_model": "llm",
+    "feishu_enabled": "feishu",
+    "feishu_app_id": "feishu",
+    "feishu_app_secret": "feishu",
+    "feishu_verification_token": "feishu",
+    "feishu_encrypt_key": "feishu",
+    "feishu_api_base_url": "feishu",
+    "feishu_request_timeout_seconds": "feishu",
+    "feishu_max_retries": "feishu",
+    "feishu_default_receive_id_type": "feishu",
+    "feishu_default_chat_id": "feishu",
+    "feishu_command_prefix": "feishu",
+    "feishu_require_mention": "feishu",
+    "feishu_group_allowlist": "feishu",
+    "feishu_user_allowlist": "feishu",
+    "feishu_push_digest_enabled": "feishu",
+    "feishu_push_digest_top_n": "feishu",
+    "feishu_event_callback_path": "feishu",
+    "feishu_public_callback_url": "feishu",
+    "feishu_agent_conversation_enabled": "feishu",
+    "feishu_agent_session_ttl_minutes": "feishu",
+    "feishu_agent_max_message_chars": "feishu",
     "feishu_webhook_enabled": "feishu",
     "feishu_webhook_url": "feishu",
     "feishu_webhook_secret": "feishu",
-    "feishu_push_digest_top_n": "feishu",
     "scheduler_daily_cron": "scheduler",
     "digest_top_n": "scheduler",
 }
@@ -144,17 +167,14 @@ def get_all_settings(mask_secrets: bool = True) -> dict[str, Any]:
     result = {}
 
     # 1. 从 .env 加载所有默认值
-    for key in dir(env_settings):
-        if key.startswith("_"):
+    for key in env_settings.model_fields:
+        try:
+            value = getattr(env_settings, key)
+            # 只保留基本类型
+            if isinstance(value, (str, int, float, bool, list, dict, type(None))):
+                result[key] = value
+        except Exception:
             continue
-        value = getattr(env_settings, key)
-        # 过滤掉非配置属性
-        if callable(value) or isinstance(value, type):
-            continue
-        # 只保留基本类型
-        if not isinstance(value, (str, int, float, bool, list, dict, type(None))):
-            continue
-        result[key] = value
 
     # 2. 用 DB 值覆盖
     try:
@@ -198,10 +218,30 @@ def init_default_settings() -> None:
         "scheduler_daily_cron": (env_settings.scheduler_daily_cron, "每日任务 Cron 表达式"),
         "scheduler_timezone": (env_settings.scheduler_timezone, "调度器时区"),
         "digest_top_n": (env_settings.digest_top_n, "每日简报 Top N"),
-        "feishu_webhook_enabled": (env_settings.feishu_webhook_enabled, "是否启用飞书 Webhook"),
-        "feishu_webhook_url": (env_settings.feishu_webhook_url, "飞书自定义机器人 Webhook URL"),
-        "feishu_webhook_secret": (env_settings.feishu_webhook_secret, "飞书自定义机器人 Secret"),
-        "feishu_push_digest_top_n": (env_settings.feishu_push_digest_top_n, "飞书推送 Digest Top N"),
+        "feishu_enabled": (env_settings.feishu_enabled, "是否启用飞书应用机器人"),
+        "feishu_app_id": (env_settings.feishu_app_id, "飞书应用 App ID"),
+        "feishu_app_secret": (env_settings.feishu_app_secret, "飞书应用 App Secret"),
+        "feishu_verification_token": (env_settings.feishu_verification_token, "事件订阅验证 Token"),
+        "feishu_encrypt_key": (env_settings.feishu_encrypt_key, "事件订阅加密 Key"),
+        "feishu_api_base_url": (env_settings.feishu_api_base_url, "飞书 API 基础 URL"),
+        "feishu_request_timeout_seconds": (env_settings.feishu_request_timeout_seconds, "飞书请求超时（秒）"),
+        "feishu_max_retries": (env_settings.feishu_max_retries, "飞书最大重试次数"),
+        "feishu_default_receive_id_type": (env_settings.feishu_default_receive_id_type, "默认接收者类型"),
+        "feishu_default_chat_id": (env_settings.feishu_default_chat_id, "默认群聊 ID"),
+        "feishu_command_prefix": (env_settings.feishu_command_prefix, "命令前缀"),
+        "feishu_require_mention": (env_settings.feishu_require_mention, "群聊中是否需要 @ 机器人"),
+        "feishu_group_allowlist": (env_settings.feishu_group_allowlist, "允许的群聊 ID 列表"),
+        "feishu_user_allowlist": (env_settings.feishu_user_allowlist, "允许的用户 ID 列表"),
+        "feishu_push_digest_enabled": (env_settings.feishu_push_digest_enabled, "是否推送每日简报"),
+        "feishu_push_digest_top_n": (env_settings.feishu_push_digest_top_n, "推送简报条目数"),
+        "feishu_event_callback_path": (env_settings.feishu_event_callback_path, "事件回调路径"),
+        "feishu_public_callback_url": (env_settings.feishu_public_callback_url, "公开回调 URL"),
+        "feishu_agent_conversation_enabled": (env_settings.feishu_agent_conversation_enabled, "是否启用 Agent 对话"),
+        "feishu_agent_session_ttl_minutes": (env_settings.feishu_agent_session_ttl_minutes, "Agent 会话 TTL（分钟）"),
+        "feishu_agent_max_message_chars": (env_settings.feishu_agent_max_message_chars, "Agent 消息最大字符数"),
+        "feishu_webhook_enabled": (env_settings.feishu_webhook_enabled, "[已废弃] 是否启用飞书 Webhook"),
+        "feishu_webhook_url": (env_settings.feishu_webhook_url, "[已废弃] 飞书自定义机器人 Webhook URL"),
+        "feishu_webhook_secret": (env_settings.feishu_webhook_secret, "[已废弃] 飞书自定义机器人 Secret"),
     }
 
     for key, (value, desc) in defaults.items():
