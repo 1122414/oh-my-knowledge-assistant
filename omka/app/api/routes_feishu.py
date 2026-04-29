@@ -142,7 +142,7 @@ async def handle_feishu_event(request: Request):
                 sender_id=sender_id,
                 message_id=message_id,
                 raw_event_json=payload,
-                handled_status="routed" if result.get("success") else "failed",
+                handled_status="routed" if result.get("code") == 0 else "failed",
                 error_message=result.get("error"),
             )
             session.add(log)
