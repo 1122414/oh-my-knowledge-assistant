@@ -9,6 +9,7 @@ from omka.app.pipeline.digest_builder import generate_digest
 from omka.app.pipeline.fetcher import fetch_all_sources
 from omka.app.pipeline.ranker import rank_candidates
 from omka.app.storage.db import FetchRun, get_session
+from sqlmodel import select
 
 
 async def _run_phase(name: str, fn: Callable, result: dict, metric_key: str) -> None:

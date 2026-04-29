@@ -35,8 +35,10 @@ class FeishuCommandRouter:
     def __init__(self, config: FeishuConfig) -> None:
         self._config: FeishuConfig = config
         self._prefix: str = config.command_prefix
+        self._current_sender_id: str = ""
 
     async def route(self, event: FeishuMessageEvent) -> FeishuCommandResult:
+        self._current_sender_id = event.sender_id
         command, args = self._parse_command(event.content)
 
         if command is None:
@@ -220,11 +222,31 @@ class FeishuCommandRouter:
                 command=FeishuCommandType.RUN,
             )
 
-        return FeishuCommandResult(
-            success=True,
-            message="正在执行每日任务，请稍候...",
-            command=FeishuCommandType.RUN,
-        )
+        if self._current_sender_id not in admin_list:
+            return FeishuCommandResult(
+                success=False,
+                message="权限不足，此命令仅限管理员使用。",
+                command=FeishuCommandType.RUN,
+            )
+
+        try:
+            import asyncio
+            from omka.app.services.daily_job import run_daily_job
+
+            asyncio.create_task(run_daily_job())
+
+            return FeishuCommandResult(
+                success=True,
+                message="正在执行每日任务，请稍候...",
+                command=FeishuCommandType.RUN,
+            )
+        except Exception as e:
+            logger.error("触发每日任务失败 | error=%s", e)
+            return FeishuCommandResult(
+                success=False,
+                message=f"触发任务失败: {str(e)}",
+                command=FeishuCommandType.RUN,
+            )
 
     @staticmethod
     def _find_latest_digest() -> Path | None:
