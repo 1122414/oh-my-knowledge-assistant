@@ -144,6 +144,22 @@ class Settings(BaseSettings):
     feishu_agent_conversation_enabled: bool = Field(default=False, description="是否启用 Agent 对话")
     feishu_agent_session_ttl_minutes: int = Field(default=60, description="Agent 会话 TTL（分钟）")
     feishu_agent_max_message_chars: int = Field(default=4000, description="Agent 消息最大字符数")
+    feishu_auto_bind_direct_chat: bool = Field(default=True, description="自动绑定单聊会话")
+    feishu_admin_open_ids: str = Field(default="", description="管理员 open_id 列表（逗号分隔）")
+
+    # ===========================================
+    # Agent 配置
+    # ===========================================
+    omka_agent_chat_enabled: bool = Field(default=False, description="启用 Agent 自由聊天")
+    omka_agent_provider: str = Field(default="", description="Agent LLM 提供商")
+    omka_agent_model: str = Field(default="", description="Agent 模型名称")
+    omka_agent_temperature: float = Field(default=0.2, description="Agent 温度")
+    omka_agent_timeout_seconds: int = Field(default=60, description="Agent 超时")
+    omka_agent_max_recent_messages: int = Field(default=6, description="最大最近消息数")
+    omka_agent_max_digest_items: int = Field(default=5, description="最大 Digest 上下文数")
+    omka_agent_max_knowledge_items: int = Field(default=5, description="最大 Knowledge 上下文数")
+    omka_agent_max_candidate_items: int = Field(default=5, description="最大 Candidate 上下文数")
+    omka_agent_max_context_chars: int = Field(default=12000, description="最大上下文字数")
 
     # 废弃的 Webhook 配置（保留兼容性，默认关闭）
     feishu_webhook_enabled: bool = Field(default=False, description="[已废弃] 是否启用飞书 Webhook")

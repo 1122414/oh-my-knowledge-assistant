@@ -30,6 +30,73 @@ class LLMClient:
                 "suggested_action": "查看详情",
             }
 
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        """多轮对话接口
+
+        Args:
+            messages: 消息列表，格式 [{"role": "user", "content": "..."}]
+            temperature: 温度参数
+            max_tokens: 最大 token 数
+
+        Returns:
+            助手回复文本
+        """
+        temp = temperature if temperature is not None else self.temperature
+        tokens = max_tokens if max_tokens is not None else self.max_tokens
+
+        if self.provider == "ollama":
+            return await self._ollama_chat_messages(messages, temp, tokens)
+
+        headers = {
+            "Content-Type": "application/json",
+        }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temp,
+            "max_tokens": tokens,
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+
+    async def _ollama_chat_messages(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        url = f"{settings.ollama_base_url}/api/chat"
+        payload = {
+            "model": settings.ollama_model,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+            },
+        }
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            return data["message"]["content"]
+
     def _build_summary_prompt(self, title: str, content: str, item_type: str) -> str:
         return f"""请为以下 GitHub 内容生成摘要和推荐理由。
 

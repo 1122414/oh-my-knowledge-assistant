@@ -318,6 +318,63 @@ class FeishuEventLog(BaseSchema, table=True):
 
 
 # ===========================================
+# 飞书单聊绑定表
+# ===========================================
+class FeishuDirectConversation(BaseSchema, table=True):
+    """飞书单聊绑定"""
+
+    __tablename__ = "feishu_direct_conversations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    open_id: str = Field(description="用户 open_id")
+    chat_id: str = Field(description="单聊 chat_id")
+    enabled: bool = Field(default=True, description="是否启用")
+    is_default: bool = Field(default=False, description="是否默认推送目标")
+    last_message_at: datetime | None = Field(default=None, description="最后消息时间")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+
+
+# ===========================================
+# 对话消息历史表
+# ===========================================
+class ConversationMessage(BaseSchema, table=True):
+    """对话消息历史"""
+
+    __tablename__ = "conversation_messages"
+
+    id: int | None = Field(default=None, primary_key=True)
+    channel: str = Field(default="feishu", description="渠道")
+    conversation_id: str = Field(description="会话 ID（chat_id）")
+    user_external_id: str = Field(description="用户外部 ID（open_id）")
+    role: str = Field(description="角色: user/assistant/system")
+    content: str = Field(description="消息内容")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+
+
+# ===========================================
+# Agent 调用记录表
+# ===========================================
+class AgentRun(BaseSchema, table=True):
+    """Agent 调用记录"""
+
+    __tablename__ = "agent_runs"
+
+    id: int | None = Field(default=None, primary_key=True)
+    conversation_id: str = Field(description="会话 ID")
+    user_external_id: str = Field(description="用户外部 ID")
+    channel: str = Field(default="feishu", description="渠道")
+    user_message: str = Field(description="用户消息")
+    answer_preview: str = Field(default="", description="回答预览")
+    model: str = Field(default="", description="使用的模型")
+    status: str = Field(default="pending", description="状态: success/failed/skipped")
+    latency_ms: int = Field(default=0, description="耗时（毫秒）")
+    used_context_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="使用的上下文")
+    error_message: str | None = Field(default=None, description="错误信息")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+
+
+# ===========================================
 # 数据库初始化
 # ===========================================
 def _migrate_fetch_runs(engine) -> None:
