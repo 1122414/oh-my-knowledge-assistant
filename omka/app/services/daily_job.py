@@ -68,11 +68,29 @@ async def run_daily_job() -> dict[str, Any]:
 
         if feishu_enabled and push_digest_enabled:
             from omka.app.integrations.feishu.service import feishu_notification_service
-            feishu_result = await feishu_notification_service.send_digest(result)
-            if feishu_result.success:
-                logger.info("[feishu] 通知发送成功")
+            from omka.app.storage.db import FeishuDirectConversation
+
+            with get_session() as session:
+                conversations = session.exec(
+                    select(FeishuDirectConversation)
+                    .where(FeishuDirectConversation.enabled == True)
+                ).all()
+
+            if conversations:
+                for conv in conversations:
+                    feishu_result = await feishu_notification_service.send_digest(
+                        result, receive_id=conv.open_id
+                    )
+                    if feishu_result.success:
+                        logger.info("[feishu] 通知发送成功 | open_id=%s", conv.open_id[:8])
+                    else:
+                        logger.warning("[feishu] 通知发送失败 | open_id=%s | %s", conv.open_id[:8], feishu_result.message)
             else:
-                logger.warning("[feishu] 通知发送失败 | %s", feishu_result.message)
+                feishu_result = await feishu_notification_service.send_digest(result)
+                if feishu_result.success:
+                    logger.info("[feishu] 通知发送成功（默认目标）")
+                else:
+                    logger.warning("[feishu] 通知发送失败 | %s", feishu_result.message)
         else:
             from omka.app.notifications.service import notification_service
             notification_results = await notification_service.send_digest(result)

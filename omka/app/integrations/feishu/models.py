@@ -17,6 +17,7 @@ class FeishuEventType(str, Enum):
 
 class FeishuCommandType(str, Enum):
     HELP = "help"
+    BIND = "bind"
     STATUS = "status"
     LATEST = "latest"
     RUN = "run"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from omka.app.integrations.feishu.command_router import FeishuCommandRouter
@@ -8,9 +9,12 @@ from omka.app.integrations.feishu.config import FeishuConfig
 from omka.app.integrations.feishu.conversation_gateway import (
     DisabledFeishuConversationGateway,
     FeishuConversationGateway,
+    SimpleKnowledgeAgentGateway,
 )
 from omka.app.integrations.feishu.errors import FeishuEventError
 from omka.app.integrations.feishu.models import FeishuMessageEvent
+from omka.app.storage.db import get_session
+from sqlmodel import select
 
 logger = logging.getLogger("OMKA.feishu.event_handler")
 
@@ -22,7 +26,10 @@ class FeishuEventHandler:
         self._config = config
         self._processed_event_ids: set[str] = set()
         self._command_router = FeishuCommandRouter(config)
-        self._conversation_gateway: FeishuConversationGateway = DisabledFeishuConversationGateway()
+        if config.agent_conversation_enabled:
+            self._conversation_gateway: FeishuConversationGateway = SimpleKnowledgeAgentGateway()
+        else:
+            self._conversation_gateway = DisabledFeishuConversationGateway()
 
     async def handle_event(
         self, payload: dict[str, Any], headers: dict[str, str] | None = None
@@ -63,6 +70,11 @@ class FeishuEventHandler:
     ) -> dict[str, Any]:
         message = event.get("message", {})
         sender = event.get("sender", {})
+        chat_type = message.get("chat_type", "")
+
+        if chat_type != "p2p":
+            logger.debug("忽略非单聊消息 | chat_type=%s", chat_type)
+            return {"code": 0, "msg": "ok"}
 
         parsed = FeishuMessageEvent(
             event_id=event_id,
@@ -86,6 +98,9 @@ class FeishuEventHandler:
         if parsed.message_type != "text":
             logger.debug("非文本消息，忽略 | message_type=%s", parsed.message_type)
             return {"code": 0, "msg": "ok"}
+
+        if self._config.auto_bind_direct_chat:
+            await self._auto_bind(parsed.sender_id, parsed.chat_id)
 
         command_result = await self._command_router.route(parsed)
 
@@ -117,6 +132,38 @@ class FeishuEventHandler:
                     logger.error("回复 Agent 对话失败 | error=%s", e)
 
         return {"code": 0, "msg": "ok"}
+
+    async def _auto_bind(self, open_id: str, chat_id: str) -> None:
+        """自动绑定单聊会话"""
+        try:
+            from omka.app.storage.db import FeishuDirectConversation
+
+            with get_session() as session:
+                existing = session.exec(
+                    select(FeishuDirectConversation)
+                    .where(FeishuDirectConversation.open_id == open_id)
+                ).first()
+
+                if existing:
+                    if existing.chat_id != chat_id:
+                        existing.chat_id = chat_id
+                        existing.updated_at = datetime.utcnow()
+                        session.add(existing)
+                        session.commit()
+                        logger.info("更新单聊绑定 | open_id=%s | chat_id=%s", open_id, chat_id)
+                else:
+                    conv = FeishuDirectConversation(
+                        open_id=open_id,
+                        chat_id=chat_id,
+                        enabled=True,
+                        is_default=False,
+                        last_message_at=datetime.utcnow(),
+                    )
+                    session.add(conv)
+                    session.commit()
+                    logger.info("新增单聊绑定 | open_id=%s | chat_id=%s", open_id, chat_id)
+        except Exception as e:
+            logger.error("自动绑定失败 | error=%s", e)
 
     def _validate_token(self, token: str) -> None:
         expected = self._config.verification_token

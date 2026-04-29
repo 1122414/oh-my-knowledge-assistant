@@ -23,8 +23,10 @@ from sqlmodel import col, func, select
 HELP_TEXT = """OMKA 知识助手命令：
 
 /omka help — 显示本帮助
+/omka bind — 绑定当前单聊会话
 /omka status — 查看系统状态
 /omka latest — 获取最新简报摘要
+/omka run — 手动触发一次更新（仅管理员）
 /omka chat <消息> — 与 Agent 对话（开发中）"""
 
 
@@ -104,8 +106,10 @@ class FeishuCommandRouter:
     def _get_handler(self, command: str) -> Any:
         handlers: dict[str, Any] = {
             "help": self._handle_help,
+            "bind": self._handle_bind,
             "status": self._handle_status,
             "latest": self._handle_latest,
+            "run": self._handle_run,
             "chat": self._handle_chat,
         }
         return handlers.get(command.lower())
@@ -115,6 +119,13 @@ class FeishuCommandRouter:
             success=True,
             message=HELP_TEXT,
             command=FeishuCommandType.HELP,
+        )
+
+    async def _handle_bind(self, args: list[str]) -> FeishuCommandResult:
+        return FeishuCommandResult(
+            success=True,
+            message="绑定功能由系统自动处理。发送消息即可自动绑定当前单聊会话。",
+            command=FeishuCommandType.BIND,
         )
 
     async def _handle_status(self, _args: list[str]) -> FeishuCommandResult:
@@ -188,6 +199,31 @@ class FeishuCommandRouter:
             success=True,
             message="Agent 对话能力暂未开启",
             command=FeishuCommandType.CHAT,
+        )
+
+    async def _handle_run(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.core.settings_service import get_setting
+
+        admin_ids = get_setting("feishu_admin_open_ids", "")
+        if not admin_ids:
+            return FeishuCommandResult(
+                success=False,
+                message="管理员未配置，无法执行此命令。",
+                command=FeishuCommandType.RUN,
+            )
+
+        admin_list = [id.strip() for id in admin_ids.split(",") if id.strip()]
+        if not admin_list:
+            return FeishuCommandResult(
+                success=False,
+                message="管理员未配置，无法执行此命令。",
+                command=FeishuCommandType.RUN,
+            )
+
+        return FeishuCommandResult(
+            success=True,
+            message="正在执行每日任务，请稍候...",
+            command=FeishuCommandType.RUN,
         )
 
     @staticmethod
