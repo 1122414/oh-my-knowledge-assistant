@@ -3,11 +3,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from omka.app.integrations.feishu.command_router import FeishuCommandRouter
 from omka.app.integrations.feishu.config import FeishuConfig
-from omka.app.integrations.feishu.errors import FeishuEventError
-from omka.app.integrations.feishu.models import (
-    FeishuMessageEvent,
+from omka.app.integrations.feishu.conversation_gateway import (
+    DisabledFeishuConversationGateway,
+    FeishuConversationGateway,
 )
+from omka.app.integrations.feishu.errors import FeishuEventError
+from omka.app.integrations.feishu.models import FeishuMessageEvent
 
 logger = logging.getLogger("OMKA.feishu.event_handler")
 
@@ -18,22 +21,12 @@ class FeishuEventHandler:
     def __init__(self, config: FeishuConfig) -> None:
         self._config = config
         self._processed_event_ids: set[str] = set()
+        self._command_router = FeishuCommandRouter(config)
+        self._conversation_gateway: FeishuConversationGateway = DisabledFeishuConversationGateway()
 
     async def handle_event(
         self, payload: dict[str, Any], headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
-        """处理飞书事件回调的入口方法
-
-        Args:
-            payload: 原始请求体（已解析为 dict）
-            headers: 请求头（预留，可用于签名校验）
-
-        Returns:
-            需要返回给飞书的响应体
-
-        Raises:
-            FeishuEventError: 验证失败或不可恢复的处理错误
-        """
         logger.debug("收到飞书事件 | headers=%s", headers)
 
         if payload.get("type") == "url_verification":
@@ -90,7 +83,39 @@ class FeishuEventHandler:
             parsed.message_type,
         )
 
-        # TODO: 后续在此处接入命令分发 / Agent 对话
+        if parsed.message_type != "text":
+            logger.debug("非文本消息，忽略 | message_type=%s", parsed.message_type)
+            return {"code": 0, "msg": "ok"}
+
+        command_result = await self._command_router.route(parsed)
+
+        if command_result.success:
+            from omka.app.integrations.feishu.client import FeishuAppBotClient
+            from omka.app.integrations.feishu.auth import FeishuAuthService
+
+            try:
+                auth_service = FeishuAuthService(self._config)
+                client = FeishuAppBotClient(self._config, auth_service)
+                await client.reply_text(parsed.message_id, command_result.message)
+            except Exception as e:
+                logger.error("回复命令结果失败 | error=%s", e)
+        else:
+            if self._config.agent_conversation_enabled:
+                reply = await self._conversation_gateway.handle_user_message(
+                    user_id=parsed.sender_id,
+                    chat_id=parsed.chat_id,
+                    message=parsed.content,
+                )
+                try:
+                    from omka.app.integrations.feishu.client import FeishuAppBotClient
+                    from omka.app.integrations.feishu.auth import FeishuAuthService
+
+                    auth_service = FeishuAuthService(self._config)
+                    client = FeishuAppBotClient(self._config, auth_service)
+                    await client.reply_text(parsed.message_id, reply)
+                except Exception as e:
+                    logger.error("回复 Agent 对话失败 | error=%s", e)
+
         return {"code": 0, "msg": "ok"}
 
     def _validate_token(self, token: str) -> None:
@@ -128,10 +153,6 @@ class FeishuEventHandler:
         if not encrypted:
             return event
 
-        # TODO: 实现 AES-256-CBC 解密
-        # from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-        # decrypted_bytes = _aes_cbc_decrypt(encrypted, self._config.encrypt_key)
-        # return json.loads(decrypted_bytes.decode("utf-8"))
         logger.warning("收到加密事件但解密尚未实现，请配置 encrypt_key 或关闭加密")
         raise FeishuEventError(
             "Encrypted event received but decryption is not implemented",

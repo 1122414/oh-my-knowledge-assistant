@@ -3,45 +3,60 @@ from typing import Any
 
 from omka.app.core.logging import logger
 from omka.app.core.settings_service import get_setting
+from omka.app.integrations.feishu.auth import FeishuAuthService
 from omka.app.integrations.feishu.client import FeishuAppBotClient
 from omka.app.integrations.feishu.config import FeishuConfig
 from omka.app.integrations.feishu.models import FeishuSendResult
 from omka.app.storage.db import FeishuMessageRun, get_session
 
 
+def _build_feishu_config() -> FeishuConfig:
+    return FeishuConfig(
+        enabled=get_setting("feishu_enabled", False),
+        app_id=get_setting("feishu_app_id", ""),
+        app_secret=get_setting("feishu_app_secret", ""),
+        verification_token=get_setting("feishu_verification_token", ""),
+        encrypt_key=get_setting("feishu_encrypt_key", ""),
+        api_base_url=get_setting("feishu_api_base_url", "https://open.feishu.cn/open-apis"),
+        request_timeout_seconds=get_setting("feishu_request_timeout_seconds", 10),
+        max_retries=get_setting("feishu_max_retries", 3),
+        default_receive_id_type=get_setting("feishu_default_receive_id_type", "chat_id"),
+        default_chat_id=get_setting("feishu_default_chat_id", ""),
+        command_prefix=get_setting("feishu_command_prefix", "/omka"),
+        require_mention=get_setting("feishu_require_mention", True),
+        group_allowlist=get_setting("feishu_group_allowlist", "").split(",") if get_setting("feishu_group_allowlist", "") else [],
+        user_allowlist=get_setting("feishu_user_allowlist", "").split(",") if get_setting("feishu_user_allowlist", "") else [],
+        push_digest_enabled=get_setting("feishu_push_digest_enabled", True),
+        push_digest_top_n=get_setting("feishu_push_digest_top_n", 6),
+        event_callback_path=get_setting("feishu_event_callback_path", "/api/integrations/feishu/events"),
+        public_callback_url=get_setting("feishu_public_callback_url", ""),
+        agent_conversation_enabled=get_setting("feishu_agent_conversation_enabled", False),
+        agent_session_ttl_minutes=get_setting("feishu_agent_session_ttl_minutes", 60),
+        agent_max_message_chars=get_setting("feishu_agent_max_message_chars", 4000),
+    )
+
+
 class FeishuNotificationService:
-    """飞书通知服务"""
 
     def __init__(self, client: FeishuAppBotClient | None = None):
-        self.client = client or FeishuAppBotClient()
+        self._client: FeishuAppBotClient | None = client
         self._config: FeishuConfig | None = None
+
+    def _ensure_client(self) -> FeishuAppBotClient:
+        if self._client is None:
+            config = self._get_config()
+            auth_service = FeishuAuthService(config)
+            self._client = FeishuAppBotClient(config, auth_service)
+        return self._client
 
     def _get_config(self) -> FeishuConfig:
         if self._config is None:
-            self._config = FeishuConfig(
-                enabled=get_setting("feishu_enabled", False),
-                app_id=get_setting("feishu_app_id", ""),
-                app_secret=get_setting("feishu_app_secret", ""),
-                verification_token=get_setting("feishu_verification_token", ""),
-                encrypt_key=get_setting("feishu_encrypt_key", ""),
-                api_base_url=get_setting("feishu_api_base_url", "https://open.feishu.cn/open-apis"),
-                request_timeout_seconds=get_setting("feishu_request_timeout_seconds", 10),
-                max_retries=get_setting("feishu_max_retries", 3),
-                default_receive_id_type=get_setting("feishu_default_receive_id_type", "chat_id"),
-                default_chat_id=get_setting("feishu_default_chat_id", ""),
-                command_prefix=get_setting("feishu_command_prefix", "/omka"),
-                require_mention=get_setting("feishu_require_mention", True),
-                group_allowlist=get_setting("feishu_group_allowlist", "").split(",") if get_setting("feishu_group_allowlist", "") else [],
-                user_allowlist=get_setting("feishu_user_allowlist", "").split(",") if get_setting("feishu_user_allowlist", "") else [],
-                push_digest_enabled=get_setting("feishu_push_digest_enabled", True),
-                push_digest_top_n=get_setting("feishu_push_digest_top_n", 6),
-                event_callback_path=get_setting("feishu_event_callback_path", "/api/integrations/feishu/events"),
-                public_callback_url=get_setting("feishu_public_callback_url", ""),
-                agent_conversation_enabled=get_setting("feishu_agent_conversation_enabled", False),
-                agent_session_ttl_minutes=get_setting("feishu_agent_session_ttl_minutes", 60),
-                agent_max_message_chars=get_setting("feishu_agent_max_message_chars", 4000),
-            )
+            self._config = _build_feishu_config()
         return self._config
+
+    def _invalidate_config(self) -> None:
+        self._config = None
+        self._client = None
 
     def _record_message_run(
         self,
@@ -91,7 +106,8 @@ class FeishuNotificationService:
             "Agent 对话能力：暂未开启"
         )
 
-        result = await self.client.send_text(
+        client = self._ensure_client()
+        result = await client.send_text(
             receive_id=target_id,
             text=test_text,
             receive_id_type=config.default_receive_id_type,
@@ -114,14 +130,14 @@ class FeishuNotificationService:
             return FeishuSendResult(success=False, message="未指定接收者 ID")
 
         from omka.app.storage.db import CandidateItem
-        from sqlmodel import select
+        from sqlmodel import col, select
 
         try:
             with get_session() as session:
                 candidates = session.exec(
                     select(CandidateItem)
                     .where(CandidateItem.status == "pending")
-                    .order_by(CandidateItem.score.desc())
+                    .order_by(col(CandidateItem.score).desc())
                     .limit(config.push_digest_top_n)
                 ).all()
 
@@ -145,7 +161,8 @@ class FeishuNotificationService:
 
             text = "\n".join(lines)
 
-            result = await self.client.send_text(
+            client = self._ensure_client()
+            result = await client.send_text(
                 receive_id=target_id,
                 text=text,
                 receive_id_type=config.default_receive_id_type,
@@ -185,15 +202,20 @@ class FeishuNotificationService:
             "",
         ]
 
+        public_url = get_setting("feishu_public_callback_url", "")
+        if not public_url:
+            public_url = "http://127.0.0.1:5173"
+
         if digest_info.get("digest_path"):
             lines.extend([
                 "查看完整简报：",
-                f"http://127.0.0.1:5173/digest",
+                f"{public_url}/digest",
             ])
 
         text = "\n".join(lines)
 
-        result = await self.client.send_text(
+        client = self._ensure_client()
+        result = await client.send_text(
             receive_id=target_id,
             text=text,
             receive_id_type=config.default_receive_id_type,

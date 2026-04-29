@@ -11,5 +11,5 @@ export const settingsApi = {
     api.post<{ key: string; message: string }>(`/settings/${key}`, { value }),
   testGithub: () => api.post<{ success: boolean; message: string }>("/settings/test-github"),
   testLlm: () => api.post<{ success: boolean; message: string }>("/settings/test-llm"),
-  testFeishu: () => api.post<{ success: boolean; message: string }>("/settings/test-feishu"),
+  testFeishu: () => api.post<{ success: boolean; message: string }>("/integrations/feishu/send-test"),
 }

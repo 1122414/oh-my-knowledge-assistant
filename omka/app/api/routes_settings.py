@@ -146,47 +146,8 @@ async def test_llm():
 
 @router.post("/test-feishu", response_model=SettingsTestResponse)
 async def test_feishu():
-    """测试飞书 Webhook 是否可用"""
-    from omka.app.notifications.channels.feishu_webhook import build_feishu_signature
+    """测试飞书应用机器人是否可用"""
+    from omka.app.integrations.feishu.service import feishu_notification_service
 
-    webhook_url = get_setting("feishu_webhook_url", "")
-    secret = get_setting("feishu_webhook_secret", "")
-
-    if not webhook_url:
-        return SettingsTestResponse(success=False, message="飞书 Webhook URL 未配置")
-
-    try:
-        # 构建测试消息
-        payload = {
-            "msg_type": "text",
-            "content": {"text": "🔧 OMKA 测试消息\n\n这是来自 OMKA 知识助手的测试推送，配置验证成功！"},
-        }
-
-        # 如果配置了 secret，添加签名
-        if secret:
-            timestamp, sign = build_feishu_signature(secret)
-            payload["timestamp"] = timestamp
-            payload["sign"] = sign
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                webhook_url,
-                json=payload,
-                timeout=10,
-            )
-            if response.status_code == 200:
-                resp_data = response.json()
-                if resp_data.get("code") == 0:
-                    return SettingsTestResponse(success=True, message="飞书 Webhook 测试成功")
-                else:
-                    return SettingsTestResponse(
-                        success=False,
-                        message=f"飞书返回错误: {resp_data.get('msg', '未知错误')}",
-                    )
-            else:
-                return SettingsTestResponse(
-                    success=False, message=f"飞书 API 返回错误: HTTP {response.status_code}"
-                )
-    except Exception as e:
-        logger.error("测试飞书 Webhook 失败 | error=%s", e)
-        return SettingsTestResponse(success=False, message=f"测试失败: {str(e)}")
+    result = await feishu_notification_service.send_test_message()
+    return SettingsTestResponse(success=result.success, message=result.message)
