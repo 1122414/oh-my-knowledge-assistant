@@ -5,18 +5,14 @@
 
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from omka.app.core.logging import logger
 from omka.app.core.settings_service import get_all_settings, get_setting, set_setting
 
 router = APIRouter()
-
-
-class SettingsUpdateRequest(BaseModel):
-    key: str = Field(..., description="配置键名")
-    value: Any = Field(..., description="配置值")
 
 
 class SettingsTestResponse(BaseModel):
@@ -64,8 +60,6 @@ async def update_setting(key: str, data: dict[str, Any]):
 @router.post("/test-github", response_model=SettingsTestResponse)
 async def test_github():
     """测试 GitHub Token 是否有效"""
-    import httpx
-
     token = get_setting("github_token", "")
     if not token:
         return SettingsTestResponse(success=False, message="GitHub Token 未配置")
@@ -100,8 +94,6 @@ async def test_github():
 @router.post("/test-llm", response_model=SettingsTestResponse)
 async def test_llm():
     """测试 LLM 配置是否可用"""
-    import httpx
-
     provider = get_setting("llm_provider", "openai")
     api_key = get_setting("llm_api_key", "")
     base_url = get_setting("llm_base_url", "")
@@ -155,8 +147,6 @@ async def test_llm():
 @router.post("/test-feishu", response_model=SettingsTestResponse)
 async def test_feishu():
     """测试飞书 Webhook 是否可用"""
-    import httpx
-
     from omka.app.notifications.channels.feishu_webhook import build_feishu_signature
 
     webhook_url = get_setting("feishu_webhook_url", "")
