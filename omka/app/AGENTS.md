@@ -14,6 +14,7 @@ Application layer for OMKA. Follows a layered architecture: API → Services →
 | `storage/` | Persistence | `db.py` (models), `repositories.py` (helpers), `markdown_store.py` (file output) |
 | `services/` | Job orchestration | `daily_job.py` (sequences pipeline phases) |
 | `profiles/` | User preference loading | `profile_loader.py` (YAML), `interest_model.py` (Pydantic models) |
+| `notifications/` | Push notifications | `service.py`, `channels/feishu_webhook.py` |
 | `core/` | Infrastructure | `config.py`, `logging.py`, `scheduler.py` |
 
 ## Data Flow
@@ -85,6 +86,18 @@ class MyModel(BaseSchema, table=True):
 - **Never** call LLM APIs synchronously. Use `async` + `httpx.AsyncClient`.
 - **Never** modify pipeline stages to depend on each other directly. Stages communicate via DB.
 - **Never** add heavy logic to API routes. Route → Service → Pipeline.
+
+### Known Violations
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `routes_digest.py:10-13` | Direct pipeline call `rank_candidates()` | Move to service layer |
+| `routes_sources.py:61` | Uses `dict[str, Any]` instead of Pydantic model | Create `SourceUpdateRequest` model |
+| `routes_feedback.py:115` | Uses `dict[str, Any]` instead of Pydantic model | Create `FeedbackRequest` model |
+| `routes_knowledge.py:49,71` | Uses `dict[str, Any]` instead of Pydantic model | Create Pydantic models |
+| `routes_settings.py:31,50` | Uses `dict[str, Any]` instead of Pydantic model | Create Pydantic models |
+| `digest_builder.py:7` | Imports from `summarizer` (pipeline-to-pipeline) | Use DB handoff or dependency injection |
+| `cleaner.py:15` | Loads all RawItems then filters | Add `.where()` at SQL level |
 
 ## Notes
 
