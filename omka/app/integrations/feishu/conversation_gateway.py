@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -54,16 +55,33 @@ class SimpleKnowledgeAgentGateway(FeishuConversationGateway):
         message: str,
         context: dict | None = None,
     ) -> str:
+        logger.info("开始处理用户消息 | user_id=%s | chat_id=%s", user_id, chat_id)
         self._save_message(chat_id, user_id, "user", message)
 
+        logger.info("构建 Agent 上下文...")
         agent_context = await self._context_builder.build(
             user_message=message,
             conversation_id=chat_id,
             user_external_id=user_id,
         )
+        logger.info("上下文构建完成 | recent=%d | digest=%d | knowledge=%d | candidate=%d",
+                    len(agent_context.recent_messages),
+                    len(agent_context.digest_items),
+                    len(agent_context.knowledge_items),
+                    len(agent_context.candidate_items))
 
         start_time = datetime.utcnow()
-        response = await self._agent.answer(agent_context)
+        agent_timeout = settings.omka_agent_timeout_seconds or 25
+        logger.info("调用 Agent | timeout=%ds", agent_timeout)
+        try:
+            response = await asyncio.wait_for(
+                self._agent.answer(agent_context),
+                timeout=agent_timeout
+            )
+            logger.info("Agent 返回成功 | answer_length=%d", len(response.answer))
+        except asyncio.TimeoutError:
+            logger.error("Agent 回答超时 | timeout=%ds", agent_timeout)
+            return "抱歉，处理你的问题时超时了。请稍后再试，或发送 /omka help 查看可用命令。"
         latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
         self._save_message(chat_id, user_id, "assistant", response.answer)

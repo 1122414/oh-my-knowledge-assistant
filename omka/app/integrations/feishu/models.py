@@ -59,3 +59,4 @@ class FeishuCommandResult:
     success: bool
     message: str
     command: FeishuCommandType = FeishuCommandType.UNKNOWN
+    args: list[str] | None = None

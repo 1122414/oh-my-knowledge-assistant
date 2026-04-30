@@ -43,6 +43,8 @@ class FeishuConfig(BaseModel):
     agent_session_ttl_minutes: int = Field(default=60, description="Agent 会话 TTL（分钟）")
     agent_max_message_chars: int = Field(default=4000, description="Agent 消息最大字符数")
 
+    auto_bind_direct_chat: bool = Field(default=True, description="自动绑定单聊会话")
+
     def is_configured(self) -> bool:
         """检查是否已配置必要的凭证"""
         return bool(self.app_id and self.app_secret)

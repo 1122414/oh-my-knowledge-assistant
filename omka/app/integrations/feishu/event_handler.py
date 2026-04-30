@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -12,7 +13,7 @@ from omka.app.integrations.feishu.conversation_gateway import (
     SimpleKnowledgeAgentGateway,
 )
 from omka.app.integrations.feishu.errors import FeishuEventError
-from omka.app.integrations.feishu.models import FeishuMessageEvent
+from omka.app.integrations.feishu.models import FeishuCommandType, FeishuMessageEvent
 from omka.app.storage.db import get_session
 from sqlmodel import select
 
@@ -102,7 +103,9 @@ class FeishuEventHandler:
         if self._config.auto_bind_direct_chat:
             await self._auto_bind(parsed.sender_id, parsed.chat_id)
 
+        logger.info("开始路由命令 | content=%s", parsed.content[:100])
         command_result = await self._command_router.route(parsed)
+        logger.info("命令路由完成 | success=%s | message=%s", command_result.success, command_result.message[:100] if command_result.message else "")
 
         if command_result.success:
             from omka.app.integrations.feishu.client import FeishuAppBotClient
@@ -111,25 +114,65 @@ class FeishuEventHandler:
             try:
                 auth_service = FeishuAuthService(self._config)
                 client = FeishuAppBotClient(self._config, auth_service)
-                await client.reply_text(parsed.message_id, command_result.message)
+                result = await client.reply_text(parsed.message_id, command_result.message)
+                if not result.success:
+                    logger.error("回复命令结果失败 | error=%s | code=%s", result.message, result.error_code)
             except Exception as e:
-                logger.error("回复命令结果失败 | error=%s", e)
+                logger.error("回复命令结果异常 | error=%s", e)
         else:
+            plain_text = parsed.content
+            if command_result.command == FeishuCommandType.CHAT and command_result.args:
+                plain_text = " ".join(command_result.args)
+                logger.info("处理 /omka chat 命令 | message=%s", plain_text[:100])
+            else:
+                try:
+                    import json
+                    content_data = json.loads(parsed.content)
+                    plain_text = content_data.get("text", parsed.content)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             if self._config.agent_conversation_enabled:
-                reply = await self._conversation_gateway.handle_user_message(
-                    user_id=parsed.sender_id,
-                    chat_id=parsed.chat_id,
-                    message=parsed.content,
-                )
+                try:
+                    reply = await asyncio.wait_for(
+                        self._conversation_gateway.handle_user_message(
+                            user_id=parsed.sender_id,
+                            chat_id=parsed.chat_id,
+                            message=plain_text,
+                        ),
+                        timeout=30
+                    )
+                except asyncio.TimeoutError:
+                    logger.error("对话网关处理超时")
+                    reply = "抱歉，处理超时了。请稍后再试。"
+                except Exception as e:
+                    logger.error("对话网关处理失败 | error=%s", e)
+                    reply = "处理消息时出现错误，请稍后再试。"
+
                 try:
                     from omka.app.integrations.feishu.client import FeishuAppBotClient
                     from omka.app.integrations.feishu.auth import FeishuAuthService
 
                     auth_service = FeishuAuthService(self._config)
                     client = FeishuAppBotClient(self._config, auth_service)
-                    await client.reply_text(parsed.message_id, reply)
+                    result = await client.reply_text(parsed.message_id, reply)
+                    if not result.success:
+                        logger.error("回复 Agent 对话失败 | error=%s | code=%s", result.message, result.error_code)
                 except Exception as e:
-                    logger.error("回复 Agent 对话失败 | error=%s", e)
+                    logger.error("回复 Agent 对话异常 | error=%s", e)
+            else:
+                logger.info("Agent 对话未启用，发送提示 | sender=%s", parsed.sender_id)
+                try:
+                    from omka.app.integrations.feishu.client import FeishuAppBotClient
+                    from omka.app.integrations.feishu.auth import FeishuAuthService
+
+                    auth_service = FeishuAuthService(self._config)
+                    client = FeishuAppBotClient(self._config, auth_service)
+                    result = await client.reply_text(parsed.message_id, "请输入 /omka help 查看可用命令。Agent 对话功能暂未启用。")
+                    if not result.success:
+                        logger.error("回复提示消息失败 | error=%s | code=%s", result.message, result.error_code)
+                except Exception as e:
+                    logger.error("回复提示消息异常 | error=%s", e)
 
         return {"code": 0, "msg": "ok"}
 

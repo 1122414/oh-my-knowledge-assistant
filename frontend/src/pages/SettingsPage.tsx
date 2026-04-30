@@ -16,18 +16,33 @@ interface FieldProps {
 
 function Field({ label, keyName, type = "text", placeholder, help, value, onChange }: FieldProps) {
   const isSecret = keyName.includes("token") || keyName.includes("key") || keyName.includes("secret")
-  const displayValue = isSecret && value && !value.includes("****") ? "已配置" : value
+  const isMasked = isSecret && value && value.includes("****")
+  const [showPlain, setShowPlain] = useState(false)
 
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">{label}</label>
-      <input
-        type={isSecret ? "password" : type}
-        value={displayValue}
-        placeholder={placeholder}
-        onChange={(e) => onChange(keyName, e.target.value)}
-        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-      />
+      <div className="relative">
+        <input
+          type={isSecret && !showPlain ? "password" : type}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(keyName, e.target.value)}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-20 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+        {isSecret && (
+          <button
+            type="button"
+            onClick={() => setShowPlain(!showPlain)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {showPlain ? "隐藏" : "显示"}
+          </button>
+        )}
+      </div>
+      {isMasked && (
+        <p className="text-xs text-muted-foreground">已有配置，留空则保持原值</p>
+      )}
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
     </div>
   )

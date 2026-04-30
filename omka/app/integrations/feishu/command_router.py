@@ -198,9 +198,10 @@ class FeishuCommandRouter:
             )
 
         return FeishuCommandResult(
-            success=True,
-            message="Agent 对话能力暂未开启",
+            success=False,
+            message="",
             command=FeishuCommandType.CHAT,
+            args=args,
         )
 
     async def _handle_run(self, args: list[str]) -> FeishuCommandResult:

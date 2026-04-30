@@ -236,9 +236,9 @@ class ContextBuilder:
     def _get_user_profile(self) -> dict[str, str]:
         """获取用户兴趣配置"""
         try:
-            from omka.app.profiles.profile_loader import load_profile_interests
+            from omka.app.profiles.profile_loader import load_interests
 
-            interests = load_profile_interests()
+            interests = load_interests()
             return {
                 "interests": ", ".join(i.get("name", "") for i in interests),
             }
