@@ -126,6 +126,9 @@ class FeishuCommandRouter:
             "more-like": self._handle_more_like,
             "dislike": self._handle_dislike_feishu,
             "later": self._handle_later,
+            "source": self._handle_source,
+            "push": self._handle_push,
+            "assets": self._handle_assets,
         }
         return handlers.get(command.lower())
 
@@ -473,6 +476,63 @@ class FeishuCommandRouter:
             message=f"📌 已标记稍后阅读\n\n候选: {candidate_id}",
             command=FeishuCommandType.UNKNOWN,
         )
+
+    async def _handle_source(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            with get_session() as session:
+                sources = session.exec(select(SourceConfig)).all()
+            lines = ["📡 信息源列表\n"]
+            for s in sources:
+                status = "✅" if s.enabled else "⏸️"
+                lines.append(f"{status} {s.name} ({s.mode})")
+                lines.append(f"   ID: {s.id}")
+            return FeishuCommandResult(success=True, message="\n".join(lines), command=FeishuCommandType.UNKNOWN)
+
+        subcommand = args[0].lower()
+        if subcommand == "list":
+            return await self._handle_source([])
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知信息源子命令: {subcommand}\n可用: list",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_push(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.action_service import PushService
+
+        if not args:
+            today_count = PushService.count_today_events()
+            return FeishuCommandResult(
+                success=True,
+                message=f"📢 推送状态\n\n今日已推送: {today_count} 条\n每日上限: 5 条",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        subcommand = args[0].lower()
+        if subcommand == "status":
+            return await self._handle_push([])
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知推送子命令: {subcommand}\n可用: status",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_assets(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.action_service import AssetService
+
+        assets = AssetService.list_assets()
+        if not assets:
+            return FeishuCommandResult(
+                success=True,
+                message="📎 资产列表为空",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        lines = ["📎 资产列表\n"]
+        for a in assets[:10]:
+            lines.append(f"[{a.asset_type}] {a.title}")
+            lines.append(f"   ID: {a.id} | 状态: {a.status}")
+        return FeishuCommandResult(success=True, message="\n".join(lines), command=FeishuCommandType.UNKNOWN)
 
     async def _handle_run(self, args: list[str]) -> FeishuCommandResult:
         from omka.app.core.settings_service import get_setting

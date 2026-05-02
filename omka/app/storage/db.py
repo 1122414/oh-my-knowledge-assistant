@@ -457,6 +457,99 @@ class RecommendationDecision(BaseSchema, table=True):
 
 
 # ===========================================
+# 系统操作审计表
+# ===========================================
+class SystemAction(BaseSchema, table=True):
+    """Agent 系统操作审计日志"""
+
+    __tablename__ = "system_actions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    action_type: str = Field(description="操作类型: source.create / candidate.confirm / memory.delete 等")
+    actor_channel: str = Field(default="feishu", description="操作渠道")
+    actor_external_id: str = Field(description="操作者外部 ID")
+    permission_level: str = Field(default="viewer", description="权限级别: viewer / operator / admin")
+    target_type: str = Field(description="目标类型: source / candidate / knowledge / memory / config / push / job")
+    target_id: str | None = Field(default=None, description="目标 ID")
+    request_text: str | None = Field(default=None, description="原始请求文本")
+    params_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="参数")
+    status: str = Field(default="pending", description="状态: pending / success / failed / denied / needs_confirm")
+    result_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="结果")
+    error_message: str | None = Field(default=None, description="错误信息")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    confirmed_at: datetime | None = Field(default=None, description="确认时间")
+
+
+# ===========================================
+# 推送策略表
+# ===========================================
+class PushPolicy(BaseSchema, table=True):
+    """主动推送策略配置"""
+
+    __tablename__ = "push_policies"
+
+    id: str = Field(primary_key=True, description="策略唯一标识")
+    name: str = Field(description="策略名称")
+    enabled: bool = Field(default=True, description="是否启用")
+    channel: str = Field(default="feishu", description="推送渠道")
+    trigger_type: str = Field(description="触发类型: daily / high_score / reminder / system_alert")
+    threshold: float | None = Field(default=None, description="分数阈值")
+    quiet_hours_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="安静时间配置")
+    max_per_day: int = Field(default=5, description="每日最大推送次数")
+    metadata_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
+
+
+# ===========================================
+# 推送事件表
+# ===========================================
+class PushEvent(BaseSchema, table=True):
+    """推送事件记录"""
+
+    __tablename__ = "push_events"
+
+    id: int | None = Field(default=None, primary_key=True)
+    policy_id: str = Field(description="关联 PushPolicy ID")
+    channel: str = Field(description="推送渠道")
+    target_id: str = Field(description="目标 ID")
+    title: str = Field(description="标题")
+    content: str = Field(description="内容")
+    status: str = Field(default="pending", description="状态: pending / sent / failed / skipped")
+    reason: str | None = Field(default=None, description="跳过/失败原因")
+    related_candidate_id: str | None = Field(default=None, description="关联候选 ID")
+    related_memory_id: str | None = Field(default=None, description="关联记忆 ID")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    sent_at: datetime | None = Field(default=None, description="发送时间")
+    response_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="响应")
+
+
+# ===========================================
+# 知识资产表
+# ===========================================
+class KnowledgeAsset(BaseSchema, table=True):
+    """多模态知识资产"""
+
+    __tablename__ = "knowledge_assets"
+
+    id: str = Field(primary_key=True, description="唯一标识")
+    asset_type: str = Field(description="资产类型: image / pdf / doc / sheet / ppt / webpage / text")
+    title: str = Field(description="标题")
+    source_type: str = Field(default="upload", description="来源: upload / feishu / url / github / manual")
+    source_ref: str | None = Field(default=None, description="来源引用")
+    file_path: str | None = Field(default=None, description="文件路径")
+    original_filename: str | None = Field(default=None, description="原始文件名")
+    mime_type: str | None = Field(default=None, description="MIME 类型")
+    size_bytes: int | None = Field(default=None, description="文件大小")
+    content_hash: str = Field(description="内容哈希")
+    status: str = Field(default="uploaded", description="状态: uploaded / processing / processed / failed / archived")
+    extracted_text: str | None = Field(default=None, description="提取的文本")
+    summary: str | None = Field(default=None, description="摘要")
+    tags: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="标签")
+    metadata_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+
+
+# ===========================================
 # 数据库初始化
 # ===========================================
 def _migrate_fetch_runs(engine) -> None:
