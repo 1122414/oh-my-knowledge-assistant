@@ -18,26 +18,11 @@ class SettingsTestResponse(BaseModel):
     message: str
 
 
-class SettingsUpdateRequest(BaseModel):
-    settings: dict[str, str | int | float | bool | None]
-
-
-class SettingUpdateRequest(BaseModel):
-    value: str | int | float | bool | None
-
-
-@router.get("")
-async def get_settings():
-    """获取所有配置（敏感字段已脱敏）"""
-    settings = get_all_settings(mask_secrets=True)
-    return {"settings": settings}
-
-
 @router.put("")
-async def update_settings(data: SettingsUpdateRequest):
+async def update_settings(data: dict[str, Any]):
     """批量更新配置"""
     updated = []
-    for key, value in data.settings.items():
+    for key, value in data.items():
         if key in {"app_version"}:
             continue
         set_setting(key, value)
