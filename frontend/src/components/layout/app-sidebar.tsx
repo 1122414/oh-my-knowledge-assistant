@@ -8,6 +8,7 @@ import {
   Newspaper,
   Brain,
   Clock,
+  Bell,
   ScrollText,
   Menu,
   X,
@@ -20,6 +21,7 @@ const navItems = [
   { path: "/digest", label: "Digest", icon: Newspaper },
   { path: "/knowledge", label: "Knowledge", icon: Brain },
   { path: "/read-later", label: "Read Later", icon: Clock },
+  { path: "/push", label: "Push", icon: Bell },
   { path: "/job-logs", label: "Job Logs", icon: ScrollText },
   { path: "/settings", label: "Settings", icon: Settings },
 ]
