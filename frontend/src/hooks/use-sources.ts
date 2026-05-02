@@ -5,6 +5,7 @@ export function useSources() {
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [runningId, setRunningId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const fetchSources = useCallback(async () => {
@@ -48,6 +49,7 @@ export function useSources() {
   }, [fetchSources])
 
   const runSource = useCallback(async (id: string) => {
+    setRunningId(id)
     setError(null)
     try {
       const result = await sourcesApi.run(id)
@@ -56,6 +58,8 @@ export function useSources() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "运行失败")
       return null
+    } finally {
+      setRunningId(null)
     }
   }, [fetchSources])
 
@@ -63,6 +67,7 @@ export function useSources() {
     sources,
     loading,
     saving,
+    runningId,
     error,
     createSource,
     deleteSource,

@@ -80,7 +80,7 @@ async def run_daily_job() -> dict[str, Any]:
             if conversations:
                 for conv in conversations:
                     feishu_result = await feishu_notification_service.send_digest(
-                        result, receive_id=conv.open_id
+                        result, receive_id=conv.open_id, receive_id_type="open_id"
                     )
                     if feishu_result.success:
                         logger.info("[feishu] 通知发送成功 | open_id=%s", conv.open_id[:8])

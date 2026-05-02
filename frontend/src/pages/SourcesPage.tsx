@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { useSources } from "@/hooks/use-sources"
 
 export function SourcesPage() {
-  const { sources, loading, saving, error, createSource, deleteSource, runSource } = useSources()
+  const { sources, loading, saving, runningId, error, createSource, deleteSource, runSource } = useSources()
   const [showAdd, setShowAdd] = useState(false)
   const [formData, setFormData] = useState({
     id: "",
@@ -173,10 +173,15 @@ export function SourcesPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => runSource(source.id)}
-                  className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent"
+                  disabled={runningId === source.id}
+                  className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
                 >
-                  <Play className="h-3 w-3" />
-                  运行
+                  {runningId === source.id ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3" />
+                  )}
+                  {runningId === source.id ? "运行中..." : "运行"}
                 </button>
                 <button
                   onClick={() => deleteSource(source.id)}

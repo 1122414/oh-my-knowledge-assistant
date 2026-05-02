@@ -57,7 +57,9 @@ def _ws_process_main(config_dict: dict) -> None:
             )
 
             event_id = data.header.event_id if data.header else ""
-            token = data.header.token if data.header else config.verification_token
+            # lark-oapi SDK 已在连接层完成事件验证，WS 事件的 header 中不含 token
+            # 因此回退到 config.verification_token，使 _validate_token() 通过
+            token = data.header.token if data.header and data.header.token else config.verification_token
 
             payload = {
                 "header": {

@@ -83,7 +83,7 @@ class FeishuNotificationService:
         except Exception as e:
             logger.error("记录飞书消息发送失败 | error=%s", e)
 
-    async def send_test_message(self, receive_id: str | None = None) -> FeishuSendResult:
+    async def send_test_message(self, receive_id: str | None = None, receive_id_type: str | None = None) -> FeishuSendResult:
         config = self._get_config()
 
         if not config.enabled:
@@ -95,6 +95,8 @@ class FeishuNotificationService:
         target_id = receive_id or config.default_chat_id
         if not target_id:
             return FeishuSendResult(success=False, message="未指定接收者 ID")
+
+        actual_receive_id_type = receive_id_type or config.default_receive_id_type
 
         test_text = (
             "OMKA 飞书机器人连接成功。\n\n"
@@ -110,13 +112,13 @@ class FeishuNotificationService:
         result = await client.send_text(
             receive_id=target_id,
             text=test_text,
-            receive_id_type=config.default_receive_id_type,
+            receive_id_type=actual_receive_id_type,
         )
 
-        self._record_message_run("test", config.default_receive_id_type, target_id, result)
+        self._record_message_run("test", actual_receive_id_type, target_id, result)
         return result
 
-    async def send_latest_digest(self, receive_id: str | None = None) -> FeishuSendResult:
+    async def send_latest_digest(self, receive_id: str | None = None, receive_id_type: str | None = None) -> FeishuSendResult:
         config = self._get_config()
 
         if not config.enabled:
@@ -128,6 +130,8 @@ class FeishuNotificationService:
         target_id = receive_id or config.default_chat_id
         if not target_id:
             return FeishuSendResult(success=False, message="未指定接收者 ID")
+
+        actual_receive_id_type = receive_id_type or config.default_receive_id_type
 
         from omka.app.storage.db import CandidateItem
         from sqlmodel import col, select
@@ -165,17 +169,17 @@ class FeishuNotificationService:
             result = await client.send_text(
                 receive_id=target_id,
                 text=text,
-                receive_id_type=config.default_receive_id_type,
+                receive_id_type=actual_receive_id_type,
             )
 
-            self._record_message_run("digest", config.default_receive_id_type, target_id, result)
+            self._record_message_run("digest", actual_receive_id_type, target_id, result)
             return result
 
         except Exception as e:
             logger.error("发送最新简报失败 | error=%s", e)
             return FeishuSendResult(success=False, message=f"发送失败: {str(e)}")
 
-    async def send_digest(self, digest: dict[str, Any], receive_id: str | None = None) -> FeishuSendResult:
+    async def send_digest(self, digest: dict[str, Any], receive_id: str | None = None, receive_id_type: str | None = None) -> FeishuSendResult:
         config = self._get_config()
 
         if not config.enabled:
@@ -187,6 +191,9 @@ class FeishuNotificationService:
         target_id = receive_id or config.default_chat_id
         if not target_id:
             return FeishuSendResult(success=False, message="未指定接收者 ID")
+
+        # 根据传入的 receive_id 确定类型；若未指定则使用配置默认值
+        actual_receive_id_type = receive_id_type or config.default_receive_id_type
 
         phases = digest.get("phases", {})
         fetch = phases.get("fetch", {})
@@ -218,10 +225,10 @@ class FeishuNotificationService:
         result = await client.send_text(
             receive_id=target_id,
             text=text,
-            receive_id_type=config.default_receive_id_type,
+            receive_id_type=actual_receive_id_type,
         )
 
-        self._record_message_run("digest", config.default_receive_id_type, target_id, result)
+        self._record_message_run("digest", actual_receive_id_type, target_id, result)
         return result
 
 
