@@ -10,6 +10,7 @@ import {
   Clock,
   Bell,
   ScrollText,
+  FileBox,
   Menu,
   X,
 } from "lucide-react"
@@ -22,6 +23,7 @@ const navItems = [
   { path: "/knowledge", label: "Knowledge", icon: Brain },
   { path: "/read-later", label: "Read Later", icon: Clock },
   { path: "/push", label: "Push", icon: Bell },
+  { path: "/assets", label: "Assets", icon: FileBox },
   { path: "/job-logs", label: "Job Logs", icon: ScrollText },
   { path: "/settings", label: "Settings", icon: Settings },
 ]

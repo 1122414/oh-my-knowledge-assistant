@@ -9,6 +9,7 @@ import { ReadLaterPage } from "@/pages/ReadLaterPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { JobLogsPage } from "@/pages/JobLogsPage"
 import { PushPage } from "@/pages/PushPage"
+import { AssetsPage } from "@/pages/AssetsPage"
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/read-later" element={<ReadLaterPage />} />
           <Route path="/push" element={<PushPage />} />
+          <Route path="/assets" element={<AssetsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/job-logs" element={<JobLogsPage />} />
         </Routes>
