@@ -51,13 +51,19 @@ class FeishuEventHandler:
 
         self._validate_token(token)
         event = self._decrypt_if_needed(payload.get("event", {}))
-        self._check_duplicate(event_id)
+        if self._check_duplicate(event_id):
+            return {"code": 0, "msg": "ok"}
 
-        if event_type == "im.message.receive_v1":
-            return await self._handle_message_event(event_id, event_type, event)
+        try:
+            if event_type == "im.message.receive_v1":
+                result = await self._handle_message_event(event_id, event_type, event)
+            else:
+                logger.warning("未支持的事件类型 | event_type=%s", event_type)
+                result = {"code": 0, "msg": "ok"}
+        finally:
+            self._mark_processed(event_id)
 
-        logger.warning("未支持的事件类型 | event_type=%s", event_type)
-        return {"code": 0, "msg": "ok"}
+        return result
 
     def _handle_url_verification(self, payload: dict[str, Any]) -> dict[str, str]:
         challenge = payload.get("challenge", "")
@@ -220,19 +226,24 @@ class FeishuEventHandler:
             )
             raise FeishuEventError("Verification token mismatch", error_code="TOKEN_INVALID")
 
-    def _check_duplicate(self, event_id: str) -> None:
+    def _check_duplicate(self, event_id: str) -> bool:
+        """检查事件是否已处理过。返回 True 表示是重复事件。"""
         if not event_id:
-            return
+            return False
         if event_id in self._processed_event_ids:
             logger.info("重复事件，跳过 | event_id=%s", event_id)
-            raise FeishuEventError(
-                f"Duplicate event: {event_id}", error_code="DUPLICATE_EVENT"
-            )
+            return True
         if len(self._processed_event_ids) >= MAX_DEDUP_SIZE:
             evict_count = MAX_DEDUP_SIZE // 2
             evicted = set(list(self._processed_event_ids)[:evict_count])
             self._processed_event_ids -= evicted
             logger.debug("去重集合已清理 | evicted=%d", evict_count)
+        return False
+
+    def _mark_processed(self, event_id: str) -> None:
+        """将事件标记为已处理。仅在 handle_event 成功完成后调用。"""
+        if not event_id:
+            return
         self._processed_event_ids.add(event_id)
 
     def _decrypt_if_needed(self, event: dict[str, Any]) -> dict[str, Any]:
