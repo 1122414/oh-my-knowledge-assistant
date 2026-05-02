@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from sqlmodel import select
 
-from omka.app.pipeline.ranker import rank_candidates
+from omka.app.services.recommendation_service import run_ranking as service_run_ranking
 from omka.app.storage.db import CandidateItem, get_session
 
 router = APIRouter()
@@ -9,7 +9,7 @@ router = APIRouter()
 
 @router.post("/run-ranking")
 async def run_ranking():
-    result = rank_candidates()
+    result = service_run_ranking()
     return result
 
 

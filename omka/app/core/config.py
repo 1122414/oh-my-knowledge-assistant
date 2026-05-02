@@ -110,6 +110,7 @@ class Settings(BaseSettings):
     raw_data_dir: Path = Field(default=DATA_DIR / "raw", description="原始数据目录")
     digests_dir: Path = Field(default=DATA_DIR / "digests", description="简报输出目录")
     knowledge_dir: Path = Field(default=DATA_DIR / "knowledge", description="知识库目录")
+    assets_dir: Path = Field(default=DATA_DIR / "assets", description="多模态资产目录")
 
     # ===========================================
     # 飞书应用机器人配置
@@ -161,6 +162,35 @@ class Settings(BaseSettings):
     omka_agent_max_candidate_items: int = Field(default=5, description="最大 Candidate 上下文数")
     omka_agent_max_context_chars: int = Field(default=12000, description="最大上下文字数")
 
+    # ===========================================
+    # 推荐系统配置
+    # ===========================================
+    recommendation_enabled: bool = Field(default=True, description="是否启用推荐系统")
+    recommendation_explanation_enabled: bool = Field(default=True, description="是否生成推荐解释")
+    recommendation_feedback_learning_enabled: bool = Field(default=True, description="是否启用反馈学习")
+
+    # ===========================================
+    # 推送策略配置
+    # ===========================================
+    push_high_score_threshold: float = Field(default=0.85, description="高价值推送分数阈值")
+    push_max_per_day: int = Field(default=5, description="每日最大推送次数")
+    push_quiet_hours_start: int = Field(default=22, description="安静时间开始（小时）")
+    push_quiet_hours_end: int = Field(default=8, description="安静时间结束（小时）")
+
+    # ===========================================
+    # 记忆系统配置
+    # ===========================================
+    memory_extraction_enabled: bool = Field(default=True, description="是否启用对话记忆抽取")
+    memory_extraction_confidence_threshold: float = Field(default=0.8, description="记忆抽取置信度阈值")
+    memory_max_active_items: int = Field(default=20, description="Agent 上下文最大活跃记忆数")
+
+    # ===========================================
+    # 多模态资产配置
+    # ===========================================
+    asset_max_file_size_mb: int = Field(default=10, description="最大上传文件大小（MB）")
+    asset_allowed_image_types: str = Field(default="jpg,jpeg,png,webp", description="允许的图片类型")
+    asset_allowed_document_types: str = Field(default="pdf,md,txt", description="允许的文档类型")
+
     # 废弃的 Webhook 配置（保留兼容性，默认关闭）
     feishu_webhook_enabled: bool = Field(default=False, description="[已废弃] 是否启用飞书 Webhook")
     feishu_webhook_url: str = Field(default="", description="[已废弃] 飞书自定义机器人 Webhook URL")
@@ -184,6 +214,10 @@ class Settings(BaseSettings):
             self.knowledge_dir / "github",
             self.data_dir / "db",
             self.log_dir,
+            self.assets_dir / "images",
+            self.assets_dir / "documents",
+            self.assets_dir / "pdf",
+            self.assets_dir / "derived",
         ]
         for d in dirs:
             d.mkdir(parents=True, exist_ok=True)

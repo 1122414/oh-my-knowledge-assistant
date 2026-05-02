@@ -20,6 +20,14 @@ class SettingsTestResponse(BaseModel):
     message: str
 
 
+class SettingsUpdateRequest(BaseModel):
+    settings: dict[str, Any]
+
+
+class SettingUpdateRequest(BaseModel):
+    value: Any
+
+
 @router.get("")
 async def get_settings():
     """获取所有配置（敏感字段已脱敏）"""
@@ -28,10 +36,10 @@ async def get_settings():
 
 
 @router.put("")
-async def update_settings(data: dict[str, Any]):
+async def update_settings(data: SettingsUpdateRequest):
     """批量更新配置"""
     updated = []
-    for key, value in data.items():
+    for key, value in data.settings.items():
         if key in {"app_version"}:
             continue
         set_setting(key, value)
@@ -136,11 +144,10 @@ async def test_feishu():
 
 
 @router.post("/{key}")
-async def update_setting(key: str, data: dict[str, Any]):
+async def update_setting(key: str, data: SettingUpdateRequest):
     """更新单个配置"""
-    value = data.get("value")
-    if value is None:
+    if data.value is None:
         raise HTTPException(status_code=400, detail="缺少 value 字段")
 
-    set_setting(key, value)
+    set_setting(key, data.value)
     return {"key": key, "message": "配置已更新"}

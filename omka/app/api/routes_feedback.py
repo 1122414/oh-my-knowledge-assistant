@@ -1,12 +1,18 @@
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from sqlmodel import select
 
 from omka.app.core.logging import logger
 from omka.app.storage.db import CandidateItem, get_session
 
 router = APIRouter()
+
+
+class FeedbackRequest(BaseModel):
+    feedback_type: str = "not_interested"
+    notes: str | None = None
 
 
 @router.get("")
@@ -112,10 +118,9 @@ async def read_later_candidate(candidate_id: str):
 
 
 @router.post("/{candidate_id:path}/feedback")
-async def feedback_candidate(candidate_id: str, data: dict[str, Any]):
+async def feedback_candidate(candidate_id: str, data: FeedbackRequest):
     from omka.app.storage.db import UserFeedback
 
-    feedback_type = data.get("feedback_type", "not_interested")
     with get_session() as session:
         candidate = session.get(CandidateItem, candidate_id)
         if not candidate:
@@ -123,10 +128,10 @@ async def feedback_candidate(candidate_id: str, data: dict[str, Any]):
 
         feedback = UserFeedback(
             candidate_item_id=candidate_id,
-            feedback_type=feedback_type,
-            notes=data.get("notes"),
+            feedback_type=data.feedback_type,
+            notes=data.notes,
         )
         session.add(feedback)
         session.commit()
-        logger.info("用户反馈 | id=%s | type=%s", candidate_id, feedback_type)
-    return {"id": candidate_id, "feedback_type": feedback_type}
+        logger.info("用户反馈 | id=%s | type=%s", candidate_id, data.feedback_type)
+    return {"id": candidate_id, "feedback_type": data.feedback_type}

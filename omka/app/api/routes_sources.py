@@ -23,6 +23,16 @@ class SourceCreateRequest(BaseModel):
     weight: float = Field(default=1.0)
 
 
+class SourceUpdateRequest(BaseModel):
+    name: str | None = None
+    enabled: bool | None = None
+    mode: str | None = None
+    repo_full_name: str | None = None
+    query: str | None = None
+    limit: int | None = None
+    weight: float | None = None
+
+
 router = APIRouter()
 
 
@@ -58,12 +68,13 @@ async def create_source(data: SourceCreateRequest):
 
 
 @router.put("/{source_id}")
-async def update_source(source_id: str, data: dict[str, Any]):
+async def update_source(source_id: str, data: SourceUpdateRequest):
     with get_session() as session:
         config = session.get(SourceConfig, source_id)
         if not config:
             raise HTTPException(status_code=404, detail="数据源不存在")
-        for key, value in data.items():
+        update_data = data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
             setattr(config, key, value)
         config.updated_at = datetime.utcnow()
         session.add(config)

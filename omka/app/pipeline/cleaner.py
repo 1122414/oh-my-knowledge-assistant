@@ -12,9 +12,14 @@ def clean_and_normalize() -> dict[str, Any]:
         existing_ids = {
             row[0] for row in session.exec(select(NormalizedItem.id)).all()
         }
-        raw_items = session.exec(select(RawItem)).all()
+        if existing_ids:
+            raw_items = session.exec(
+                select(RawItem).where(RawItem.id.notin_(existing_ids))
+            ).all()
+        else:
+            raw_items = session.exec(select(RawItem)).all()
 
-    pending_raws = [r for r in raw_items if r.id not in existing_ids]
+    pending_raws = raw_items
 
     if not pending_raws:
         logger.info("没有需要规范化的原始数据")
