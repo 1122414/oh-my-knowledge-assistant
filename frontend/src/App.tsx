@@ -10,6 +10,7 @@ import { SettingsPage } from "@/pages/SettingsPage"
 import { JobLogsPage } from "@/pages/JobLogsPage"
 import { PushPage } from "@/pages/PushPage"
 import { AssetsPage } from "@/pages/AssetsPage"
+import { MemoryPage } from "@/pages/MemoryPage"
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/read-later" element={<ReadLaterPage />} />
           <Route path="/push" element={<PushPage />} />
           <Route path="/assets" element={<AssetsPage />} />
+          <Route path="/memory" element={<MemoryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/job-logs" element={<JobLogsPage />} />
         </Routes>

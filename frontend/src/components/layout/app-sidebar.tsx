@@ -24,6 +24,7 @@ const navItems = [
   { path: "/read-later", label: "Read Later", icon: Clock },
   { path: "/push", label: "Push", icon: Bell },
   { path: "/assets", label: "Assets", icon: FileBox },
+  { path: "/memory", label: "Memory", icon: Brain },
   { path: "/job-logs", label: "Job Logs", icon: ScrollText },
   { path: "/settings", label: "Settings", icon: Settings },
 ]
