@@ -13,6 +13,7 @@ class AgentContext(BaseModel):
     digest_items: list[dict[str, str]] = Field(default_factory=list, description="最新 Digest 条目")
     knowledge_items: list[dict[str, str]] = Field(default_factory=list, description="已收藏知识")
     candidate_items: list[dict[str, str]] = Field(default_factory=list, description="候选内容")
+    memory_items: list[dict[str, str]] = Field(default_factory=list, description="活跃记忆")
     user_profile: dict[str, str] = Field(default_factory=dict, description="用户兴趣配置")
 
 

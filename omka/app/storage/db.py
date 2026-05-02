@@ -375,6 +375,51 @@ class AgentRun(BaseSchema, table=True):
 
 
 # ===========================================
+# 记忆条目表
+# ===========================================
+class MemoryItem(BaseSchema, table=True):
+    """统一记忆条目：用户记忆、对话记忆、系统记忆"""
+
+    __tablename__ = "memory_items"
+
+    id: str = Field(primary_key=True, description="唯一标识")
+    memory_type: str = Field(description="记忆类型: user / conversation / system")
+    scope: str = Field(default="global", description="作用域: global / user / conversation / source / project")
+    subject: str = Field(description="主题: user_profile / project / preference / task / setting / status")
+    content: str = Field(description="记忆内容")
+    summary: str | None = Field(default=None, description="摘要")
+    source_type: str = Field(default="manual", description="来源: manual / conversation / feedback / system_event / import")
+    source_ref: str | None = Field(default=None, description="来源引用")
+    confidence: float = Field(default=0.8, description="置信度")
+    importance: float = Field(default=0.5, description="重要性")
+    status: str = Field(default="active", description="状态: candidate / active / archived / rejected / expired")
+    visibility: str = Field(default="private", description="可见性: private / shared")
+    tags: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="标签")
+    metadata_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+    last_used_at: datetime | None = Field(default=None, description="最后使用时间")
+    expires_at: datetime | None = Field(default=None, description="过期时间")
+
+
+# ===========================================
+# 记忆事件表
+# ===========================================
+class MemoryEvent(BaseSchema, table=True):
+    """记忆变更事件日志"""
+
+    __tablename__ = "memory_events"
+
+    id: int | None = Field(default=None, primary_key=True)
+    memory_id: str = Field(description="关联 MemoryItem ID")
+    event_type: str = Field(description="事件类型: created / confirmed / edited / used / rejected / expired")
+    actor_type: str = Field(default="system", description="操作者类型: user / agent / system")
+    actor_id: str | None = Field(default=None, description="操作者 ID")
+    detail_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="详情")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+
+
+# ===========================================
 # 数据库初始化
 # ===========================================
 def _migrate_fetch_runs(engine) -> None:

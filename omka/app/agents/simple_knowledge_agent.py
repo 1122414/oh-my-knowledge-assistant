@@ -59,6 +59,7 @@ class SimpleKnowledgeAgent(BaseAgent):
             digest_items=self._format_digest_items(context.digest_items),
             knowledge_items=self._format_knowledge_items(context.knowledge_items),
             candidate_items=self._format_candidate_items(context.candidate_items),
+            memory_items=self._format_memory_items(context.memory_items),
         )
         messages.append({"role": "user", "content": user_prompt})
 
@@ -111,10 +112,22 @@ class SimpleKnowledgeAgent(BaseAgent):
                 lines.append(f"   摘要: {item['summary'][:100]}")
         return "\n".join(lines)
 
+    def _format_memory_items(self, items: list[dict[str, str]]) -> str:
+        if not items:
+            return "暂无"
+
+        lines = []
+        for i, item in enumerate(items, 1):
+            lines.append(f"{i}. [{item.get('type', '')}] {item.get('subject', '')}")
+            if item.get("content"):
+                lines.append(f"   {item['content'][:100]}")
+        return "\n".join(lines)
+
     def _extract_used_context(self, context: AgentContext) -> list[dict[str, str]]:
-        """提取使用的上下文"""
         used = []
 
+        if context.memory_items:
+            used.append({"type": "memory", "count": str(len(context.memory_items))})
         if context.digest_items:
             used.append({"type": "digest", "count": str(len(context.digest_items))})
         if context.knowledge_items:

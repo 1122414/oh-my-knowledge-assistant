@@ -21,12 +21,14 @@ class ContextBuilder:
         max_digest_items: int = 5,
         max_knowledge_items: int = 5,
         max_candidate_items: int = 5,
+        max_memory_items: int = 5,
         max_context_chars: int = 12000,
     ):
         self.max_recent_messages = max_recent_messages
         self.max_digest_items = max_digest_items
         self.max_knowledge_items = max_knowledge_items
         self.max_candidate_items = max_candidate_items
+        self.max_memory_items = max_memory_items
         self.max_context_chars = max_context_chars
 
     async def build(
@@ -35,20 +37,11 @@ class ContextBuilder:
         conversation_id: str,
         user_external_id: str,
     ) -> AgentContext:
-        """构建 Agent 上下文
-
-        Args:
-            user_message: 用户消息
-            conversation_id: 会话 ID
-            user_external_id: 用户外部 ID
-
-        Returns:
-            Agent 上下文
-        """
         recent_messages = self._get_recent_messages(conversation_id)
         digest_items = self._get_latest_digest_items()
         knowledge_items = self._search_knowledge(user_message)
         candidate_items = self._search_candidates(user_message)
+        memory_items = self._get_active_memories()
         user_profile = self._get_user_profile()
 
         context = AgentContext(
@@ -59,6 +52,7 @@ class ContextBuilder:
             digest_items=digest_items,
             knowledge_items=knowledge_items,
             candidate_items=candidate_items,
+            memory_items=memory_items,
             user_profile=user_profile,
         )
 
@@ -233,6 +227,23 @@ class ContextBuilder:
             logger.error("获取 top 候选失败 | error=%s", e)
             return []
 
+    def _get_active_memories(self) -> list[dict[str, str]]:
+        try:
+            from omka.app.services.memory_service import MemoryService
+
+            memories = MemoryService.get_active_memories_for_context(max_items=self.max_memory_items)
+            return [
+                {
+                    "type": m.memory_type,
+                    "subject": m.subject,
+                    "content": m.content[:200] if len(m.content) > 200 else m.content,
+                }
+                for m in memories
+            ]
+        except Exception as e:
+            logger.error("获取活跃记忆失败 | error=%s", e)
+            return []
+
     def _get_user_profile(self) -> dict[str, str]:
         """获取用户兴趣配置"""
         try:
@@ -262,12 +273,12 @@ class ContextBuilder:
         return score
 
     def _trim_context(self, context: AgentContext) -> AgentContext:
-        """裁剪上下文到最大长度"""
         total_chars = len(context.user_message)
         total_chars += sum(len(m.get("content", "")) for m in context.recent_messages)
         total_chars += sum(len(d.get("title", "") + d.get("summary", "")) for d in context.digest_items)
         total_chars += sum(len(k.get("title", "") + k.get("summary", "")) for k in context.knowledge_items)
         total_chars += sum(len(c.get("title", "") + c.get("summary", "")) for c in context.candidate_items)
+        total_chars += sum(len(m.get("content", "")) for m in context.memory_items)
 
         if total_chars <= self.max_context_chars:
             return context
@@ -276,6 +287,9 @@ class ContextBuilder:
             if context.candidate_items:
                 removed = context.candidate_items.pop()
                 total_chars -= len(removed.get("title", "") + removed.get("summary", ""))
+            elif context.memory_items:
+                removed = context.memory_items.pop()
+                total_chars -= len(removed.get("content", ""))
             elif context.knowledge_items:
                 removed = context.knowledge_items.pop()
                 total_chars -= len(removed.get("title", "") + removed.get("summary", ""))

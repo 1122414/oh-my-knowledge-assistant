@@ -27,7 +27,15 @@ HELP_TEXT = """OMKA 知识助手命令：
 /omka status — 查看系统状态
 /omka latest — 获取最新简报摘要
 /omka run — 手动触发一次更新（仅管理员）
-/omka chat <消息> — 与 Agent 对话（开发中）"""
+/omka chat <消息> — 与 Agent 对话
+
+记忆管理：
+/omka memory list — 查看记忆列表
+/omka memory profile — 查看记忆统计
+/omka memory add <内容> — 添加用户记忆
+/omka memory confirm <记忆ID> — 确认候选记忆
+/omka memory reject <记忆ID> — 拒绝候选记忆
+/omka memory delete <记忆ID> — 删除记忆"""
 
 
 class FeishuCommandRouter:
@@ -113,6 +121,7 @@ class FeishuCommandRouter:
             "latest": self._handle_latest,
             "run": self._handle_run,
             "chat": self._handle_chat,
+            "memory": self._handle_memory,
         }
         return handlers.get(command.lower())
 
@@ -202,6 +211,180 @@ class FeishuCommandRouter:
             message="",
             command=FeishuCommandType.CHAT,
             args=args,
+        )
+
+    async def _handle_memory(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(
+                success=True,
+                message="请指定记忆子命令: list / profile / add / confirm / reject / delete",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        subcommand = args[0].lower()
+
+        try:
+            if subcommand == "list":
+                return await self._handle_memory_list(args[1:])
+            elif subcommand == "profile":
+                return await self._handle_memory_profile()
+            elif subcommand == "add":
+                return await self._handle_memory_add(args[1:])
+            elif subcommand == "confirm":
+                return await self._handle_memory_confirm(args[1:])
+            elif subcommand == "reject":
+                return await self._handle_memory_reject(args[1:])
+            elif subcommand == "delete":
+                return await self._handle_memory_delete(args[1:])
+            else:
+                return FeishuCommandResult(
+                    success=False,
+                    message=f"未知记忆子命令: {subcommand}\n可用: list / profile / add / confirm / reject / delete",
+                    command=FeishuCommandType.UNKNOWN,
+                )
+        except Exception as e:
+            logger.error("处理记忆命令失败 | subcommand=%s | error=%s", subcommand, e)
+            return FeishuCommandResult(
+                success=False,
+                message=f"处理记忆命令失败: {str(e)}",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+    async def _handle_memory_list(self, _args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.memory_service import MemoryService
+
+        memories = MemoryService.list_memories(limit=20)
+        if not memories:
+            message = "📝 记忆列表为空\n\n还没有记录任何记忆。"
+        else:
+            lines = ["📝 记忆列表（最近20条）\n"]
+            for m in memories:
+                status_icon = {"active": "✅", "candidate": "⏳", "rejected": "❌", "archived": "📦"}.get(m.status, "❓")
+                lines.append(f"{status_icon} [{m.memory_type}] {m.subject}")
+                lines.append(f"   ID: {m.id}")
+                lines.append(f"   内容: {m.content[:60]}..." if len(m.content) > 60 else f"   内容: {m.content}")
+                if m.tags:
+                    lines.append(f"   标签: {', '.join(m.tags)}")
+                lines.append("")
+            message = "\n".join(lines)
+
+        return FeishuCommandResult(success=True, message=message, command=FeishuCommandType.UNKNOWN)
+
+    async def _handle_memory_profile(self) -> FeishuCommandResult:
+        from omka.app.services.memory_service import MemoryService
+
+        summary = {
+            "user": MemoryService.count_memories(memory_type="user"),
+            "conversation": MemoryService.count_memories(memory_type="conversation"),
+            "system": MemoryService.count_memories(memory_type="system"),
+            "candidate": MemoryService.count_memories(status="candidate"),
+        }
+
+        lines = [
+            "🧠 记忆统计",
+            "",
+            f"用户记忆: {summary['user']} 条",
+            f"对话记忆: {summary['conversation']} 条",
+            f"系统记忆: {summary['system']} 条",
+            f"候选记忆: {summary['candidate']} 条",
+        ]
+        return FeishuCommandResult(success=True, message="\n".join(lines), command=FeishuCommandType.UNKNOWN)
+
+    async def _handle_memory_add(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.memory_service import MemoryService
+
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请提供记忆内容，例如: /omka memory add 我最近重点关注多模态知识资产",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        content = " ".join(args)
+        memory = MemoryService.create_memory(
+            memory_type="user",
+            subject="manual_add",
+            content=content,
+            scope="user",
+            source_type="manual",
+            importance=0.7,
+        )
+        return FeishuCommandResult(
+            success=True,
+            message=f"✅ 已添加用户记忆\n\nID: {memory.id}\n内容: {content[:100]}",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_memory_confirm(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.memory_service import MemoryService
+
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请提供记忆 ID，例如: /omka memory confirm mem_xxx",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        memory_id = args[0]
+        memory = MemoryService.confirm_memory(memory_id)
+        if not memory:
+            return FeishuCommandResult(
+                success=False,
+                message=f"记忆不存在: {memory_id}",
+                command=FeishuCommandType.UNKNOWN,
+            )
+        return FeishuCommandResult(
+            success=True,
+            message=f"✅ 记忆已确认\n\nID: {memory_id}\n状态: active",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_memory_reject(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.memory_service import MemoryService
+
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请提供记忆 ID，例如: /omka memory reject mem_xxx",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        memory_id = args[0]
+        memory = MemoryService.reject_memory(memory_id)
+        if not memory:
+            return FeishuCommandResult(
+                success=False,
+                message=f"记忆不存在: {memory_id}",
+                command=FeishuCommandType.UNKNOWN,
+            )
+        return FeishuCommandResult(
+            success=True,
+            message=f"❌ 记忆已拒绝\n\nID: {memory_id}\n状态: rejected",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_memory_delete(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.memory_service import MemoryService
+
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请提供记忆 ID，例如: /omka memory delete mem_xxx",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        memory_id = args[0]
+        success = MemoryService.delete_memory(memory_id)
+        if not success:
+            return FeishuCommandResult(
+                success=False,
+                message=f"记忆不存在: {memory_id}",
+                command=FeishuCommandType.UNKNOWN,
+            )
+        return FeishuCommandResult(
+            success=True,
+            message=f"🗑️ 记忆已删除\n\nID: {memory_id}",
+            command=FeishuCommandType.UNKNOWN,
         )
 
     async def _handle_run(self, args: list[str]) -> FeishuCommandResult:

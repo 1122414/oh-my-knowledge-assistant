@@ -22,21 +22,8 @@ def build_user_prompt(
     digest_items: str = "",
     knowledge_items: str = "",
     candidate_items: str = "",
+    memory_items: str = "",
 ) -> str:
-    """构建用户 Prompt
-
-    Args:
-        user_message: 用户消息
-        interests: 用户兴趣
-        projects: 用户项目
-        recent_messages: 最近对话
-        digest_items: 最新简报
-        knowledge_items: 已收藏知识
-        candidate_items: 候选内容
-
-    Returns:
-        格式化的用户 Prompt
-    """
     parts = [f"用户问题：\n{user_message}"]
 
     if interests:
@@ -44,6 +31,9 @@ def build_user_prompt(
 
     if projects:
         parts.append(f"当前项目：\n{projects}")
+
+    if memory_items:
+        parts.append(f"相关记忆：\n{memory_items}")
 
     if recent_messages:
         parts.append(f"最近对话：\n{recent_messages}")
