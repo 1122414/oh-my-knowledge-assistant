@@ -269,14 +269,10 @@ class KnowledgeActionService:
 class ConfigActionService:
     """配置操作服务：支持查看和修改非敏感配置"""
 
-    SENSITIVE_KEYS = {
-        "github_token",
-        "llm_api_key",
-        "feishu_app_secret",
-        "feishu_verification_token",
-        "feishu_encrypt_key",
-        "feishu_webhook_secret",
-    }
+    @staticmethod
+    def _get_sensitive_keys() -> set[str]:
+        from omka.app.core.settings_service import SENSITIVE_KEYS
+        return SENSITIVE_KEYS
 
     @staticmethod
     def list_config(mask_secrets: bool = True) -> dict[str, Any]:
@@ -290,7 +286,7 @@ class ConfigActionService:
 
     @staticmethod
     def set_config(key: str, value: Any) -> tuple[bool, str]:
-        if key.lower() in ConfigActionService.SENSITIVE_KEYS:
+        if key.lower() in ConfigActionService._get_sensitive_keys():
             return False, f"配置项 {key} 为敏感字段，不允许通过飞书修改"
         from omka.app.core.settings_service import set_setting
         try:
@@ -302,7 +298,7 @@ class ConfigActionService:
 
     @staticmethod
     def is_sensitive(key: str) -> bool:
-        return key.lower() in ConfigActionService.SENSITIVE_KEYS
+        return key.lower() in ConfigActionService._get_sensitive_keys()
 
 
 class PushService:

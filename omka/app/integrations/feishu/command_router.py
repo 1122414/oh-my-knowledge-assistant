@@ -60,13 +60,22 @@ HELP_TEXT = """OMKA 知识助手命令：
 /omka push pause — 暂停推送
 /omka push resume — 恢复推送
 
+推荐反馈：
+/omka why <candidate_id> — 查看推荐原因
+/omka more-like <candidate_id> — 标记偏好
+/omka dislike <candidate_id> — 标记不感兴趣
+/omka later <candidate_id> — 稍后阅读
+
 记忆管理：
 /omka memory list — 查看记忆列表
 /omka memory profile — 查看记忆统计
 /omka memory add <内容> — 添加用户记忆
 /omka memory confirm <记忆ID> — 确认候选记忆
 /omka memory reject <记忆ID> — 拒绝候选记忆
-/omka memory delete <记忆ID> — 删除记忆"""
+/omka memory delete <记忆ID> — 删除记忆
+
+多模态资产：
+/omka assets — 查看资产列表"""
 
 
 class FeishuCommandRouter:
@@ -650,7 +659,7 @@ class FeishuCommandRouter:
         )
 
     async def _handle_candidate(self, args: list[str]) -> FeishuCommandResult:
-        from omka.app.services.action_service import CandidateActionService
+        from omka.app.services.action_service import CandidateActionService, PermissionService
 
         if not args:
             candidates = CandidateActionService.list_candidates(status="pending", limit=10)
@@ -670,6 +679,8 @@ class FeishuCommandRouter:
             return await self._handle_candidate([])
 
         if subcommand in ("save", "confirm"):
+            if not PermissionService.check_permission(self._current_sender_id, "operator"):
+                return FeishuCommandResult(success=False, message="权限不足，确认入库需要 operator 权限", command=FeishuCommandType.CANDIDATE)
             if len(args) < 2:
                 return FeishuCommandResult(success=False, message="请提供候选 ID", command=FeishuCommandType.CANDIDATE)
             candidate_id = args[1]
@@ -678,6 +689,8 @@ class FeishuCommandRouter:
             return FeishuCommandResult(success=False, message=f"候选不存在: {candidate_id}", command=FeishuCommandType.CANDIDATE)
 
         if subcommand == "ignore":
+            if not PermissionService.check_permission(self._current_sender_id, "operator"):
+                return FeishuCommandResult(success=False, message="权限不足，忽略候选需要 operator 权限", command=FeishuCommandType.CANDIDATE)
             if len(args) < 2:
                 return FeishuCommandResult(success=False, message="请提供候选 ID", command=FeishuCommandType.CANDIDATE)
             candidate_id = args[1]
@@ -686,6 +699,8 @@ class FeishuCommandRouter:
             return FeishuCommandResult(success=False, message=f"候选不存在: {candidate_id}", command=FeishuCommandType.CANDIDATE)
 
         if subcommand == "later":
+            if not PermissionService.check_permission(self._current_sender_id, "operator"):
+                return FeishuCommandResult(success=False, message="权限不足，标记稍后读需要 operator 权限", command=FeishuCommandType.CANDIDATE)
             if len(args) < 2:
                 return FeishuCommandResult(success=False, message="请提供候选 ID", command=FeishuCommandType.CANDIDATE)
             candidate_id = args[1]
@@ -784,6 +799,15 @@ class FeishuCommandRouter:
             if len(args) < 2:
                 return FeishuCommandResult(success=False, message="请提供配置键名", command=FeishuCommandType.CONFIG)
             key = args[1]
+            if ConfigActionService.is_sensitive(key):
+                if not PermissionService.check_permission(self._current_sender_id, "admin"):
+                    return FeishuCommandResult(success=False, message="权限不足，查看敏感配置需要 admin 权限", command=FeishuCommandType.CONFIG)
+                value = ConfigActionService.get_config(key)
+                if value is None:
+                    return FeishuCommandResult(success=False, message=f"配置不存在: {key}", command=FeishuCommandType.CONFIG)
+                from omka.app.core.settings_service import _mask_value
+                masked = _mask_value(str(value))
+                return FeishuCommandResult(success=True, message=f"⚙️ {key}\n\n{masked}", command=FeishuCommandType.CONFIG)
             value = ConfigActionService.get_config(key)
             if value is None:
                 return FeishuCommandResult(success=False, message=f"配置不存在: {key}", command=FeishuCommandType.CONFIG)
@@ -806,8 +830,7 @@ class FeishuCommandRouter:
         )
 
     async def _handle_push(self, args: list[str]) -> FeishuCommandResult:
-        from omka.app.services.action_service import PermissionService, PushService
-        from omka.app.core.settings_service import get_setting, set_setting
+        from omka.app.services.action_service import ConfigActionService, PermissionService, PushService
 
         if not args:
             today_count = PushService.count_today_events()
@@ -824,14 +847,14 @@ class FeishuCommandRouter:
         if subcommand == "pause":
             if not PermissionService.check_permission(self._current_sender_id, "operator"):
                 return FeishuCommandResult(success=False, message="权限不足，暂停推送需要 operator 权限", command=FeishuCommandType.PUSH)
-            set_setting("feishu_push_digest_enabled", False)
-            return FeishuCommandResult(success=True, message="⏸️ 已暂停每日简报推送", command=FeishuCommandType.PUSH)
+            success, message = ConfigActionService.set_config("feishu_push_digest_enabled", False)
+            return FeishuCommandResult(success=success, message="⏸️ 已暂停每日简报推送", command=FeishuCommandType.PUSH)
 
         if subcommand == "resume":
             if not PermissionService.check_permission(self._current_sender_id, "operator"):
                 return FeishuCommandResult(success=False, message="权限不足，恢复推送需要 operator 权限", command=FeishuCommandType.PUSH)
-            set_setting("feishu_push_digest_enabled", True)
-            return FeishuCommandResult(success=True, message="▶️ 已恢复每日简报推送", command=FeishuCommandType.PUSH)
+            success, message = ConfigActionService.set_config("feishu_push_digest_enabled", True)
+            return FeishuCommandResult(success=success, message="▶️ 已恢复每日简报推送", command=FeishuCommandType.PUSH)
 
         if subcommand == "set":
             if not PermissionService.check_permission(self._current_sender_id, "admin"):
