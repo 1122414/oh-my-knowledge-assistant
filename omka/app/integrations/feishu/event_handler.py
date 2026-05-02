@@ -125,6 +125,18 @@ class FeishuEventHandler:
                     logger.error("回复命令结果失败 | error=%s | code=%s", result.message, result.error_code)
             except Exception as e:
                 logger.error("回复命令结果异常 | error=%s", e)
+        elif command_result.command != FeishuCommandType.UNKNOWN:
+            from omka.app.integrations.feishu.client import FeishuAppBotClient
+            from omka.app.integrations.feishu.auth import FeishuAuthService
+
+            try:
+                auth_service = FeishuAuthService(self._config)
+                client = FeishuAppBotClient(self._config, auth_service)
+                result = await client.reply_text(parsed.message_id, command_result.message)
+                if not result.success:
+                    logger.error("回复命令错误失败 | error=%s | code=%s", result.message, result.error_code)
+            except Exception as e:
+                logger.error("回复命令错误异常 | error=%s", e)
         else:
             plain_text = parsed.content
             if command_result.command == FeishuCommandType.CHAT and command_result.args:
