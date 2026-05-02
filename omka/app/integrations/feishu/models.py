@@ -22,6 +22,11 @@ class FeishuCommandType(str, Enum):
     LATEST = "latest"
     RUN = "run"
     CHAT = "chat"
+    SOURCE = "source"
+    CANDIDATE = "candidate"
+    CONFIG = "config"
+    PUSH = "push"
+    KNOWLEDGE = "knowledge"
     UNKNOWN = "unknown"
 
 
