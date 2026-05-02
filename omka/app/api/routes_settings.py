@@ -24,6 +24,12 @@ class SettingUpdateRequest(BaseModel):
     value: str | int | float | bool | None
 
 
+@router.get("")
+async def get_settings():
+    settings = get_all_settings(mask_secrets=True)
+    return {"settings": settings}
+
+
 @router.put("")
 async def update_settings(data: dict[str, Any]):
     """批量更新配置"""
