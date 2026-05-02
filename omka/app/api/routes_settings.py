@@ -3,6 +3,8 @@
 提供配置读写和测试接口。
 """
 
+from typing import Any
+
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
