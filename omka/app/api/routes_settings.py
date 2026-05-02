@@ -20,6 +20,10 @@ class SettingsTestResponse(BaseModel):
     message: str
 
 
+class SettingUpdateRequest(BaseModel):
+    value: str | int | float | bool | None
+
+
 @router.put("")
 async def update_settings(data: dict[str, Any]):
     """批量更新配置"""
