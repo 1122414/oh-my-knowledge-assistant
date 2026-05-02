@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, AlertCircle, Loader2, Globe, Bot, MessageSquare, Clock, Save } from "lucide-react"
+import { Check, AlertCircle, Loader2, Globe, Bot, MessageSquare, Clock, Save, Brain, Zap, Bell, FolderOpen, TrendingUp } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
 import { useSettings } from "@/hooks/use-settings"
 import { cn } from "@/lib/cn"
@@ -492,6 +492,234 @@ export function SettingsPage() {
             type="number"
             placeholder="12000"
             value={getValue("omka_agent_max_context_chars")}
+            onChange={handleChange}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="排序权重"
+        icon={TrendingUp}
+        keys={[
+          "score_weight_interest",
+          "score_weight_project",
+          "score_weight_freshness",
+          "score_weight_popularity",
+          "freshness_decay_days",
+        ]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="兴趣匹配权重"
+            keyName="score_weight_interest"
+            type="number"
+            placeholder="0.40"
+            help="0.0-1.0"
+            value={getValue("score_weight_interest")}
+            onChange={handleChange}
+          />
+          <Field
+            label="项目相关权重"
+            keyName="score_weight_project"
+            type="number"
+            placeholder="0.30"
+            help="0.0-1.0"
+            value={getValue("score_weight_project")}
+            onChange={handleChange}
+          />
+          <Field
+            label="新鲜度权重"
+            keyName="score_weight_freshness"
+            type="number"
+            placeholder="0.15"
+            help="0.0-1.0"
+            value={getValue("score_weight_freshness")}
+            onChange={handleChange}
+          />
+          <Field
+            label="热度权重"
+            keyName="score_weight_popularity"
+            type="number"
+            placeholder="0.15"
+            help="0.0-1.0"
+            value={getValue("score_weight_popularity")}
+            onChange={handleChange}
+          />
+          <Field
+            label="新鲜度衰减天数"
+            keyName="freshness_decay_days"
+            type="number"
+            placeholder="7"
+            value={getValue("freshness_decay_days")}
+            onChange={handleChange}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="推荐系统"
+        icon={Zap}
+        keys={[
+          "recommendation_enabled",
+          "recommendation_explanation_enabled",
+          "recommendation_feedback_learning_enabled",
+        ]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="启用推荐系统"
+            keyName="recommendation_enabled"
+            placeholder="true / false"
+            value={getValue("recommendation_enabled")}
+            onChange={handleChange}
+          />
+          <Field
+            label="启用推荐解释"
+            keyName="recommendation_explanation_enabled"
+            placeholder="true / false"
+            help="为每条推荐生成解释说明"
+            value={getValue("recommendation_explanation_enabled")}
+            onChange={handleChange}
+          />
+          <Field
+            label="启用反馈学习"
+            keyName="recommendation_feedback_learning_enabled"
+            placeholder="true / false"
+            help="用户反馈会影响后续推荐"
+            value={getValue("recommendation_feedback_learning_enabled")}
+            onChange={handleChange}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="推送策略"
+        icon={Bell}
+        keys={[
+          "push_high_score_threshold",
+          "push_max_per_day",
+          "push_quiet_hours_start",
+          "push_quiet_hours_end",
+        ]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="高价值推送阈值"
+            keyName="push_high_score_threshold"
+            type="number"
+            placeholder="0.85"
+            help="超过此分数的候选会触发即时推送"
+            value={getValue("push_high_score_threshold")}
+            onChange={handleChange}
+          />
+          <Field
+            label="每日最大推送次数"
+            keyName="push_max_per_day"
+            type="number"
+            placeholder="5"
+            value={getValue("push_max_per_day")}
+            onChange={handleChange}
+          />
+          <Field
+            label="安静时间开始"
+            keyName="push_quiet_hours_start"
+            type="number"
+            placeholder="22"
+            help="小时（0-23）"
+            value={getValue("push_quiet_hours_start")}
+            onChange={handleChange}
+          />
+          <Field
+            label="安静时间结束"
+            keyName="push_quiet_hours_end"
+            type="number"
+            placeholder="8"
+            help="小时（0-23）"
+            value={getValue("push_quiet_hours_end")}
+            onChange={handleChange}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="记忆系统"
+        icon={Brain}
+        keys={[
+          "memory_extraction_enabled",
+          "memory_extraction_confidence_threshold",
+          "memory_max_active_items",
+        ]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="启用记忆抽取"
+            keyName="memory_extraction_enabled"
+            placeholder="true / false"
+            help="从对话中自动抽取记忆"
+            value={getValue("memory_extraction_enabled")}
+            onChange={handleChange}
+          />
+          <Field
+            label="记忆抽取置信度阈值"
+            keyName="memory_extraction_confidence_threshold"
+            type="number"
+            placeholder="0.8"
+            help="0.0-1.0"
+            value={getValue("memory_extraction_confidence_threshold")}
+            onChange={handleChange}
+          />
+          <Field
+            label="最大活跃记忆数"
+            keyName="memory_max_active_items"
+            type="number"
+            placeholder="20"
+            help="Agent 上下文包含的最大记忆数"
+            value={getValue("memory_max_active_items")}
+            onChange={handleChange}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="多模态资产"
+        icon={FolderOpen}
+        keys={[
+          "asset_max_file_size_mb",
+          "asset_allowed_image_types",
+          "asset_allowed_document_types",
+        ]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="最大文件大小（MB）"
+            keyName="asset_max_file_size_mb"
+            type="number"
+            placeholder="10"
+            value={getValue("asset_max_file_size_mb")}
+            onChange={handleChange}
+          />
+          <Field
+            label="允许的图片类型"
+            keyName="asset_allowed_image_types"
+            placeholder="jpg,jpeg,png,webp"
+            value={getValue("asset_allowed_image_types")}
+            onChange={handleChange}
+          />
+          <Field
+            label="允许的文档类型"
+            keyName="asset_allowed_document_types"
+            placeholder="pdf,md,txt"
+            value={getValue("asset_allowed_document_types")}
             onChange={handleChange}
           />
         </div>
