@@ -20,7 +20,8 @@ class FeishuAuthService:
 
     async def get_tenant_access_token(self) -> str:
         if self._is_token_valid():
-            return self._token  # type: ignore[return-value]
+            assert self._token is not None
+            return self._token
 
         return await self.refresh_tenant_access_token()
 

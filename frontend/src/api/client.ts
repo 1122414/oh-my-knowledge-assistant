@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8000"
+export const API_BASE_URL = "http://127.0.0.1:8000"
 
 async function request<T>(
   path: string,
@@ -9,7 +9,7 @@ async function request<T>(
     ...options.headers as Record<string, string>,
   }
 
-  if (options.body !== undefined) {
+  if (options.body !== undefined && !(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json"
   }
 
@@ -29,6 +29,7 @@ async function request<T>(
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body !== undefined ? JSON.stringify(body) : undefined }),
+  postFormData: <T>(path: string, formData: FormData) => request<T>(path, { method: "POST", body: formData }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 }

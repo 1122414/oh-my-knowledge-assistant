@@ -29,17 +29,7 @@ class KnowledgeFeedbackRequest(BaseModel):
 async def list_knowledge():
     with get_session() as session:
         items = session.exec(select(KnowledgeItem).order_by(KnowledgeItem.created_at.desc())).all()
-        return [
-            {
-                "id": i.id,
-                "title": i.title,
-                "url": i.url,
-                "item_type": i.item_type,
-                "tags": i.tags,
-                "created_at": i.created_at,
-            }
-            for i in items
-        ]
+        return [i.model_dump() for i in items]
 
 
 @router.get("/{item_id:path}")
@@ -48,17 +38,7 @@ async def get_knowledge(item_id: str):
         item = session.get(KnowledgeItem, item_id)
         if not item:
             raise HTTPException(status_code=404, detail="知识条目不存在")
-        return {
-            "id": item.id,
-            "title": item.title,
-            "url": item.url,
-            "item_type": item.item_type,
-            "content": item.content,
-            "summary": item.summary,
-            "tags": item.tags,
-            "item_metadata": item.item_metadata,
-            "created_at": item.created_at,
-        }
+        return item.model_dump()
 
 
 @router.post("")

@@ -28,16 +28,7 @@ export const assetsApi = {
   upload: (file: File) => {
     const formData = new FormData()
     formData.append("file", file)
-    return fetch("http://127.0.0.1:8000/assets/upload", {
-      method: "POST",
-      body: formData,
-    }).then(async (res) => {
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: "上传失败" }))
-        throw new Error(error.message || `HTTP ${res.status}`)
-      }
-      return res.json()
-    })
+    return api.postFormData<{ id: string; status: string; asset_type: string }>("/assets/upload", formData)
   },
   get: (asset_id: string) =>
     api.get<KnowledgeAsset>(`/assets/${asset_id}`),

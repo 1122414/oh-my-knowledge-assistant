@@ -4,12 +4,12 @@ from typing import Any
 
 from omka.app.core.config import settings
 from omka.app.core.logging import logger
-from omka.app.pipeline.summarizer import LLMClient
 from omka.app.storage.db import CandidateItem, NormalizedItem, get_session
 from sqlmodel import select
 
 
 async def generate_digest() -> dict[str, Any]:
+    from omka.app.pipeline.summarizer import LLMClient
     llm = LLMClient()
 
     with get_session() as session:

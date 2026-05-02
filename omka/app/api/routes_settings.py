@@ -3,8 +3,6 @@
 提供配置读写和测试接口。
 """
 
-from typing import Any
-
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -21,11 +19,11 @@ class SettingsTestResponse(BaseModel):
 
 
 class SettingsUpdateRequest(BaseModel):
-    settings: dict[str, Any]
+    settings: dict[str, str | int | float | bool | None]
 
 
 class SettingUpdateRequest(BaseModel):
-    value: Any
+    value: str | int | float | bool | None
 
 
 @router.get("")
