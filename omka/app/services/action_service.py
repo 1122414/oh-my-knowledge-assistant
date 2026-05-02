@@ -125,7 +125,7 @@ class SourceActionService:
             weight=weight,
         )
         with get_session() as session:
-            session.merge(config)
+            config = session.merge(config)
             session.commit()
             session.refresh(config)
         logger.info("创建信息源 | id=%s | name=%s | mode=%s", source_id, name, mode)
