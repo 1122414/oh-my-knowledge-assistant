@@ -10,6 +10,7 @@ from omka.app.integrations.feishu.models import (
     FeishuCommandType,
     FeishuMessageEvent,
 )
+from omka.app.services.nlu_service import NLUService
 from omka.app.storage.db import (
     CandidateItem,
     FetchRun,
@@ -85,17 +86,30 @@ class FeishuCommandRouter:
         self._prefix: str = config.command_prefix
         self._current_sender_id: str = ""
         self._pending_confirmations: dict[int, dict] = {}
+        self._nlu = NLUService()
 
     async def route(self, event: FeishuMessageEvent) -> FeishuCommandResult:
         self._current_sender_id = event.sender_id
         command, args = self._parse_command(event.content)
 
         if command is None:
-            return FeishuCommandResult(
-                success=False,
-                message="无法解析命令内容",
-                command=FeishuCommandType.UNKNOWN,
-            )
+            text = self._extract_text(event.content)
+            nlu_result = await self._nlu.parse(text)
+            if nlu_result:
+                command, args = self._nlu_to_command(nlu_result)
+                logger.info(
+                    "NLU 解析 | text=%s | command=%s | args=%s | confidence=%.2f",
+                    text[:50],
+                    command,
+                    args,
+                    nlu_result.get("confidence", 0),
+                )
+            else:
+                return FeishuCommandResult(
+                    success=False,
+                    message="无法解析命令内容。输入 /omka help 查看可用命令，或用自然语言描述您的需求。",
+                    command=FeishuCommandType.UNKNOWN,
+                )
 
         logger.info(
             "收到飞书命令 | command=%s | args=%s | sender=%s",
@@ -178,6 +192,21 @@ class FeishuCommandRouter:
             return "", []
 
         return tokens[0], tokens[1:]
+
+    def _extract_text(self, content: str) -> str:
+        try:
+            data = json.loads(content)
+            return data.get("text", "").strip()
+        except (json.JSONDecodeError, TypeError):
+            return content.strip()
+
+    def _nlu_to_command(self, nlu_result: dict) -> tuple[str, list[str]]:
+        command = nlu_result["command"]
+        args = nlu_result.get("args", [])
+        parts = command.split(".")
+        if len(parts) == 1:
+            return parts[0], args
+        return parts[0], parts[1:] + args
 
     def _get_handler(self, command: str) -> Any:
         handlers: dict[str, Any] = {
