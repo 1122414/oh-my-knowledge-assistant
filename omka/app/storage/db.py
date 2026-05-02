@@ -420,6 +420,43 @@ class MemoryEvent(BaseSchema, table=True):
 
 
 # ===========================================
+# 推荐运行记录表
+# ===========================================
+class RecommendationRun(BaseSchema, table=True):
+    """推荐运行记录"""
+
+    __tablename__ = "recommendation_runs"
+
+    id: int | None = Field(default=None, primary_key=True)
+    trigger_type: str = Field(description="触发类型: daily / manual / feishu_query / push")
+    user_external_id: str | None = Field(default=None, description="用户外部 ID")
+    candidate_count: int = Field(default=0, description="候选数量")
+    selected_count: int = Field(default=0, description="选中数量")
+    strategy: str = Field(default="default", description="策略名称")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    metadata_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="元数据")
+
+
+# ===========================================
+# 推荐决策表
+# ===========================================
+class RecommendationDecision(BaseSchema, table=True):
+    """推荐决策记录"""
+
+    __tablename__ = "recommendation_decisions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: int = Field(description="关联 RecommendationRun ID")
+    candidate_item_id: str = Field(description="关联 CandidateItem ID")
+    final_score: float = Field(description="最终得分")
+    rank: int = Field(description="排名")
+    explanation: str = Field(description="推荐解释文本")
+    explanation_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="结构化解释")
+    action_hint: str | None = Field(default=None, description="建议操作")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+
+
+# ===========================================
 # 数据库初始化
 # ===========================================
 def _migrate_fetch_runs(engine) -> None:

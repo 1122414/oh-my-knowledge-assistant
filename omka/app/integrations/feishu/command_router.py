@@ -122,6 +122,10 @@ class FeishuCommandRouter:
             "run": self._handle_run,
             "chat": self._handle_chat,
             "memory": self._handle_memory,
+            "why": self._handle_why,
+            "more-like": self._handle_more_like,
+            "dislike": self._handle_dislike_feishu,
+            "later": self._handle_later,
         }
         return handlers.get(command.lower())
 
@@ -384,6 +388,89 @@ class FeishuCommandRouter:
         return FeishuCommandResult(
             success=True,
             message=f"🗑️ 记忆已删除\n\nID: {memory_id}",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_why(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.recommendation_service import RecommendationService
+
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请提供候选 ID，例如: /omka why candidate:xxx",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        candidate_id = args[0].replace("candidate:", "")
+        explanation = RecommendationService.get_explanation(candidate_id)
+        if not explanation:
+            return FeishuCommandResult(
+                success=False,
+                message=f"未找到候选 {candidate_id} 的推荐解释",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        exp_json = explanation.get("explanation_json", {})
+        lines = [f"💡 为什么推荐 {candidate_id}", ""]
+        lines.append(explanation.get("explanation", "暂无解释"))
+        if exp_json.get("matched_interests"):
+            lines.append(f"\n匹配兴趣: {', '.join(exp_json['matched_interests'])}")
+        lines.append(f"\n最终得分: {explanation.get('final_score', 0):.4f}")
+        lines.append(f"排名: #{explanation.get('rank', 0)}")
+
+        return FeishuCommandResult(success=True, message="\n".join(lines), command=FeishuCommandType.UNKNOWN)
+
+    async def _handle_more_like(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.memory_service import MemoryService
+
+        content = " ".join(args) if args else "用户希望看到更多类似内容"
+        memory = MemoryService.create_memory(
+            memory_type="user",
+            subject="preference",
+            content=content,
+            scope="user",
+            source_type="feedback",
+            importance=0.85,
+        )
+        return FeishuCommandResult(
+            success=True,
+            message=f"✅ 已记录偏好\n\nID: {memory.id}\n内容: {content[:100]}",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_dislike_feishu(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.recommendation_service import RecommendationService
+
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请提供候选 ID，例如: /omka dislike candidate:xxx",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        candidate_id = args[0].replace("candidate:", "")
+        RecommendationService.record_feedback(candidate_id, "dislike")
+        return FeishuCommandResult(
+            success=True,
+            message=f"❌ 已标记不感兴趣\n\n候选: {candidate_id}",
+            command=FeishuCommandType.UNKNOWN,
+        )
+
+    async def _handle_later(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.recommendation_service import RecommendationService
+
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请提供候选 ID，例如: /omka later candidate:xxx",
+                command=FeishuCommandType.UNKNOWN,
+            )
+
+        candidate_id = args[0].replace("candidate:", "")
+        RecommendationService.record_feedback(candidate_id, "read_later")
+        return FeishuCommandResult(
+            success=True,
+            message=f"📌 已标记稍后阅读\n\n候选: {candidate_id}",
             command=FeishuCommandType.UNKNOWN,
         )
 

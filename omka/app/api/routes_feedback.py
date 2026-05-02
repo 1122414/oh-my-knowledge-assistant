@@ -43,6 +43,7 @@ async def list_candidates(status: str | None = None):
 
 @router.post("/{candidate_id:path}/confirm")
 async def confirm_candidate(candidate_id: str):
+    from omka.app.services.recommendation_service import RecommendationService
     from omka.app.storage.db import KnowledgeItem, NormalizedItem
     from omka.app.storage.markdown_store import save_knowledge_markdown
 
@@ -86,7 +87,8 @@ async def confirm_candidate(candidate_id: str):
         except Exception as e:
             logger.error("保存 Markdown 失败 | id=%s | error=%s", candidate_id, e)
 
-        logger.info("候选条目已确认并入库 | id=%s", candidate_id)
+    RecommendationService.record_feedback(candidate_id, "confirm")
+    logger.info("候选条目已确认并入库 | id=%s", candidate_id)
     return {"id": candidate_id, "status": "confirmed"}
 
 
@@ -109,12 +111,18 @@ async def ignore_candidate(candidate_id: str):
 
 @router.post("/{candidate_id:path}/dislike")
 async def dislike_candidate(candidate_id: str):
-    return _set_candidate_status(candidate_id, "disliked", "候选条目已标记不感兴趣 | id=%s")
+    from omka.app.services.recommendation_service import RecommendationService
+    result = _set_candidate_status(candidate_id, "disliked", "候选条目已标记不感兴趣 | id=%s")
+    RecommendationService.record_feedback(candidate_id, "dislike")
+    return result
 
 
 @router.post("/{candidate_id:path}/read-later")
 async def read_later_candidate(candidate_id: str):
-    return _set_candidate_status(candidate_id, "read_later", "候选条目已标记稍后阅读 | id=%s")
+    from omka.app.services.recommendation_service import RecommendationService
+    result = _set_candidate_status(candidate_id, "read_later", "候选条目已标记稍后阅读 | id=%s")
+    RecommendationService.record_feedback(candidate_id, "read_later")
+    return result
 
 
 @router.post("/{candidate_id:path}/feedback")
