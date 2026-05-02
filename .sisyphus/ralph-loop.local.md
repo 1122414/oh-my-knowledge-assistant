@@ -1,12 +1,15 @@
 ---
 active: true
-iteration: 1
+iteration: 2
 max_iterations: 500
-completion_promise: "DONE"
+completion_promise: "VERIFIED"
 initial_completion_promise: "DONE"
+verification_attempt_id: "27c928f0-bcef-46f1-8c4d-f669754f1f28"
+verification_session_id: "ses_21724cda0ffeTyqMWT9GkCzpKV"
 started_at: "2026-05-02T12:25:12.504Z"
 session_id: "ses_2180293faffeEK8TNtK1omcCNt"
 ultrawork: true
+verification_pending: true
 strategy: "continue"
 message_count_at_start: 200
 ---
