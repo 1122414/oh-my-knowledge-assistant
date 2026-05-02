@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, AlertCircle, Loader2, Globe, Bot, MessageSquare, Clock, Save, Brain, Zap, Bell, FolderOpen, TrendingUp } from "lucide-react"
+import { Check, AlertCircle, Loader2, Globe, Bot, MessageSquare, Clock, Save, Brain, Zap, Bell, FolderOpen, TrendingUp, Shield } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
 import { useSettings } from "@/hooks/use-settings"
 import { cn } from "@/lib/cn"
@@ -366,6 +366,33 @@ export function SettingsPage() {
               测试连接
             </button>
           </div>
+        </div>
+      </Section>
+
+      <Section
+        title="权限管理"
+        icon={Shield}
+        keys={["feishu_admin_open_ids", "feishu_operator_open_ids"]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="管理员 open_id 列表"
+            keyName="feishu_admin_open_ids"
+            placeholder="ou_xxxx,ou_yyyy"
+            help="admin 权限可执行所有操作，包括删除和修改敏感配置。多个用逗号分隔"
+            value={getValue("feishu_admin_open_ids")}
+            onChange={handleChange}
+          />
+          <Field
+            label="操作员 open_id 列表"
+            keyName="feishu_operator_open_ids"
+            placeholder="ou_xxxx,ou_yyyy"
+            help="operator 权限可添加信息源、管理候选、修改非敏感配置。多个用逗号分隔"
+            value={getValue("feishu_operator_open_ids")}
+            onChange={handleChange}
+          />
         </div>
       </Section>
 

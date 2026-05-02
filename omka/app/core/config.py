@@ -147,6 +147,7 @@ class Settings(BaseSettings):
     feishu_agent_max_message_chars: int = Field(default=4000, description="Agent 消息最大字符数")
     feishu_auto_bind_direct_chat: bool = Field(default=True, description="自动绑定单聊会话")
     feishu_admin_open_ids: str = Field(default="", description="管理员 open_id 列表（逗号分隔）")
+    feishu_operator_open_ids: str = Field(default="", description="操作员 open_id 列表（逗号分隔）")
 
     # ===========================================
     # Agent 配置
