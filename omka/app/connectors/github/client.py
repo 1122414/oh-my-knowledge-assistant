@@ -51,15 +51,17 @@ class GitHubClient:
         result = await self._request("GET", url, params=params)
         return result if isinstance(result, list) else []
 
-    async def search_repositories(self, query: str, per_page: int = 5) -> list[dict[str, Any]]:
-        """搜索仓库"""
+    async def search_repositories(self, query: str, per_page: int = 5, sort: str | None = "updated", qualifiers: str | None = None) -> list[dict[str, Any]]:
         url = f"{self.base_url}/search/repositories"
+        effective_qualifiers = qualifiers if qualifiers is not None else settings.search_qualifiers
+        full_query = f"{query} {effective_qualifiers}".strip() if effective_qualifiers else query
         params = {
-            "q": query,
-            "sort": "updated",
-            "order": "desc",
+            "q": full_query,
             "per_page": per_page,
         }
+        if sort:
+            params["sort"] = sort
+            params["order"] = "desc"
         result = await self._request("GET", url, params=params)
         return result.get("items", []) if isinstance(result, dict) else []
 

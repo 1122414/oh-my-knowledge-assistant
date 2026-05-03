@@ -10,6 +10,7 @@ from omka.app.connectors.github.normalizer import (
 )
 from omka.app.core.config import settings
 from omka.app.core.logging import logger
+from omka.app.pipeline.quality_reranker import compute_source_quality
 
 
 class GitHubConnector(SourceConnector):
@@ -70,16 +71,53 @@ class GitHubConnector(SourceConnector):
                     return results
 
                 try:
-                    items = await self.client.search_repositories(query, per_page=limit)
-                    for item in items:
-                        results.append({
-                            "item_type": "github_repo_search_result",
-                            "source_id": source_id,
-                            "fetch_url": f"{settings.github_api_base_url}/search/repositories?q={query}",
-                            "http_status": 200,
-                            "raw_data": item,
-                            "fetched_at": datetime.utcnow(),
-                        })
+                    strategies = _get_search_strategies()
+                    seen_names: set[str] = set()
+                    rank_counter = 0
+
+                    for strategy_name, sort_param in strategies:
+                        items = await self.client.search_repositories(
+                            query, per_page=limit, sort=sort_param,
+                        )
+                        for item in items:
+                            full_name = item.get("full_name", "")
+                            if full_name in seen_names:
+                                continue
+
+                            if item.get("archived") or item.get("disabled"):
+                                continue
+
+                            stars = item.get("stargazers_count", 0)
+                            if stars < settings.search_min_stars:
+                                continue
+
+                            is_fork = item.get("fork", False)
+                            if is_fork:
+                                continue
+
+                            seen_names.add(full_name)
+                            rank_counter += 1
+
+                            quality = compute_source_quality(
+                                item, query, strategy_name, rank_counter,
+                            )
+                            item["_source_quality"] = quality
+
+                            results.append({
+                                "item_type": "github_repo_search_result",
+                                "source_id": source_id,
+                                "fetch_url": f"{settings.github_api_base_url}/search/repositories?q={query}",
+                                "http_status": 200,
+                                "raw_data": item,
+                                "fetched_at": datetime.utcnow(),
+                            })
+
+                            if len(seen_names) >= settings.search_max_candidates_per_query:
+                                break
+
+                        if len(seen_names) >= settings.search_max_candidates_per_query:
+                            break
+
                 except Exception as e:
                     logger.error("搜索仓库失败 | query=%s | error=%s", query, e)
 
@@ -107,3 +145,13 @@ class GitHubConnector(SourceConnector):
             return normalize_search_repo(raw_data, source_id, search_query)
         else:
             raise ValueError(f"未知的 item_type: {item_type}")
+
+
+def _get_search_strategies() -> list[tuple[str, str | None]]:
+    if settings.search_expand_queries:
+        return [
+            ("best_match", None),
+            ("stars", "stars"),
+            ("updated", "updated"),
+        ]
+    return [("updated", "updated")]

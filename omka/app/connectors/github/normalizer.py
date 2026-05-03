@@ -97,7 +97,6 @@ def normalize_release(raw: dict[str, Any], repo_full_name: str, source_id: str) 
 
 
 def normalize_search_repo(raw: dict[str, Any], source_id: str, search_query: str) -> dict[str, Any]:
-    """将 GitHub 搜索结果的 repo 转换为 NormalizedItem"""
     repo = _parse_repo(raw, search_query)
 
     content_parts = [
@@ -107,6 +106,8 @@ def normalize_search_repo(raw: dict[str, Any], source_id: str, search_query: str
         f"Stars: {repo.stargazers_count}",
         f"Updated at: {repo.updated_at.isoformat()}",
     ]
+
+    quality = raw.get("_source_quality", {})
 
     return {
         "id": f"github:search_repo:{repo.full_name}",
@@ -128,5 +129,9 @@ def normalize_search_repo(raw: dict[str, Any], source_id: str, search_query: str
             "language": repo.language,
             "search_query": search_query,
             "search_score": repo.search_score,
+            "source_quality_score": quality.get("source_quality_score", 0),
+            "source_quality_reasons": quality.get("source_quality_reasons", []),
+            "search_strategy": quality.get("search_strategy", ""),
+            "search_rank": quality.get("search_rank", 0),
         },
     }

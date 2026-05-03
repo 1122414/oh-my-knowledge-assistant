@@ -21,6 +21,7 @@ def rank_candidates() -> dict[str, Any]:
         return {"ranked_count": 0}
 
     ranked_count = 0
+    ignored_count = 0
     with get_session() as session:
         for candidate in candidates:
             normalized = session.get(NormalizedItem, candidate.normalized_item_id)
@@ -39,13 +40,18 @@ def rank_candidates() -> dict[str, Any]:
             candidate.score_detail = scores
             candidate.matched_interests = scores.get("matched_interests", [])
             candidate.matched_projects = scores.get("matched_projects", [])
+
+            if final_score < settings.candidate_score_threshold:
+                candidate.status = "ignored"
+                ignored_count += 1
+            else:
+                ranked_count += 1
             session.add(candidate)
-            ranked_count += 1
 
         session.commit()
 
-    logger.info("排序完成 | ranked=%d", ranked_count)
-    return {"ranked_count": ranked_count}
+    logger.info("排序完成 | ranked=%d | ignored=%d", ranked_count, ignored_count)
+    return {"ranked_count": ranked_count, "ignored_count": ignored_count}
 
 
 def compute_scores(item: NormalizedItem, profile: UserProfile) -> dict[str, Any]:
@@ -76,12 +82,20 @@ def compute_scores(item: NormalizedItem, profile: UserProfile) -> dict[str, Any]
 
     freshness_score = compute_freshness_score(item.updated_at or item.published_at)
     popularity_score = compute_popularity_score(item.item_metadata)
+    source_quality_score = item.item_metadata.get("source_quality_score", 0)
+
+    search_score = item.item_metadata.get("search_score")
+    if search_score is not None and search_score > 0:
+        relevance = min(search_score * 2, 1.0)
+        interest_score *= max(relevance, 0.1)
+        project_score *= max(relevance, 0.1)
 
     return {
         "interest_score": round(min(interest_score, 5.0), 4),
         "project_score": round(min(project_score, 5.0), 4),
         "freshness_score": round(freshness_score, 4),
         "popularity_score": round(popularity_score, 4),
+        "source_quality_score": round(source_quality_score, 4),
         "matched_interests": matched_interests,
         "matched_projects": matched_projects,
     }
