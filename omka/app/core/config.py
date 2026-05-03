@@ -89,6 +89,10 @@ class Settings(BaseSettings):
 
     search_rate_limit: int = Field(default=10, description="Search API 限速（次/分钟）")
     search_results_per_query: int = Field(default=5, description="每查询返回结果数")
+    search_qualifiers: str = Field(default="in:name,description stars:>=5", description="GitHub 搜索限定符")
+    search_min_stars: int = Field(default=10, description="搜索结果最低 star 数")
+    search_max_candidates_per_query: int = Field(default=15, description="每搜索源最大候选数")
+    search_expand_queries: bool = Field(default=False, description="是否启用多策略召回")
     releases_per_repo: int = Field(default=1, description="每仓库获取 Release 数")
 
     # ===========================================
@@ -100,6 +104,7 @@ class Settings(BaseSettings):
     score_weight_popularity: float = Field(default=0.15, description="热度权重")
 
     freshness_decay_days: int = Field(default=7, description="新鲜度衰减天数")
+    candidate_score_threshold: float = Field(default=0.10, description="候选人最低分数阈值，低于此值的自动忽略")
     digest_top_n: int = Field(default=10, description="每日简报 Top N 条目数")
 
     # ===========================================
