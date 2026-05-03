@@ -32,13 +32,21 @@ async def get_settings():
 
 @router.put("")
 async def update_settings(data: dict[str, Any]):
-    """批量更新配置"""
     updated = []
+    has_scheduler = False
     for key, value in data.items():
         if key in {"app_version"}:
             continue
         set_setting(key, value)
+        if key == "scheduler_daily_cron":
+            has_scheduler = True
         updated.append(key)
+
+    if has_scheduler:
+        from omka.app.services.scheduler_service import update_schedule
+        ok, _ = update_schedule(data["scheduler_daily_cron"])
+        if not ok:
+            logger.warning("设置已保存但调度器更新失败")
 
     logger.info("批量更新配置 | keys=%s", ", ".join(updated))
     return {"updated": updated, "message": f"已更新 {len(updated)} 项配置"}
@@ -140,9 +148,15 @@ async def test_feishu():
 
 @router.post("/{key}")
 async def update_setting(key: str, data: SettingUpdateRequest):
-    """更新单个配置"""
     if data.value is None:
         raise HTTPException(status_code=400, detail="缺少 value 字段")
 
     set_setting(key, data.value)
+
+    if key == "scheduler_daily_cron" and isinstance(data.value, str):
+        from omka.app.services.scheduler_service import update_schedule
+        ok, _ = update_schedule(data.value)
+        if not ok:
+            logger.warning("设置已保存但调度器更新失败")
+
     return {"key": key, "message": "配置已更新"}
