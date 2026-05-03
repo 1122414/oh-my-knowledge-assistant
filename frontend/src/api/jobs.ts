@@ -26,8 +26,17 @@ export interface JobRun {
   error_message: string | null
 }
 
+export interface ScheduleInfo {
+  cron: string
+  timezone: string
+  next_run_time: string | null
+  running: boolean
+}
+
 export const jobsApi = {
   getDashboard: () => api.get<DashboardData>("/jobs/dashboard"),
   getRuns: () => api.get<JobRun[]>("/jobs/runs"),
   runNow: () => api.post<unknown>("/jobs/run-now"),
+  getSchedule: () => api.get<ScheduleInfo>("/jobs/schedule"),
+  updateSchedule: (schedule: string) => api.put<ScheduleInfo>("/jobs/schedule", { schedule }),
 }

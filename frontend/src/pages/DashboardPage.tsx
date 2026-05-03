@@ -1,13 +1,27 @@
-import { useState } from "react"
-import { Play, Loader2, AlertCircle, Check, Clock, Brain, Newspaper, Activity } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Play, Loader2, AlertCircle, Check, Clock, Brain, Newspaper, Activity, CalendarClock } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
 import { useDashboard } from "@/hooks/use-dashboard"
-import { jobsApi } from "@/api/jobs"
+import { jobsApi, type ScheduleInfo } from "@/api/jobs"
 import { cn } from "@/lib/cn"
 
 export function DashboardPage() {
   const { data, loading, error, fetchData } = useDashboard()
   const [running, setRunning] = useState(false)
+  const [schedule, setSchedule] = useState<ScheduleInfo | null>(null)
+
+  const fetchSchedule = async () => {
+    try {
+      const info = await jobsApi.getSchedule()
+      setSchedule(info)
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    fetchSchedule()
+  }, [])
 
   const handleRunNow = async () => {
     setRunning(true)
@@ -106,6 +120,42 @@ export function DashboardPage() {
           )
         })}
       </div>
+
+      {schedule && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">定时任务</h3>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Cron 表达式</p>
+              <p className="font-mono font-medium">{schedule.cron}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">时区</p>
+              <p className="font-medium">{schedule.timezone}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">下次运行</p>
+              <p className="font-medium">
+                {schedule.next_run_time
+                  ? new Date(schedule.next_run_time).toLocaleString("zh-CN")
+                  : "未启动"}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">状态</p>
+              <span className={cn(
+                "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
+                schedule.running ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+              )}>
+                {schedule.running ? "运行中" : "未启动"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {data?.today_run.started_at && (
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">

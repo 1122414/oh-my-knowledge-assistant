@@ -408,7 +408,7 @@ export function SettingsPage() {
             label="每日任务 Cron"
             keyName="scheduler_daily_cron"
             placeholder="0 9 * * *"
-            help="Cron 表达式，默认每天早上 9:00"
+            help="Cron 表达式或自然语言: 每天 9:30 / 每周一 18:00 / 0 9 * * *"
             value={getValue("scheduler_daily_cron")}
             onChange={handleChange}
           />
