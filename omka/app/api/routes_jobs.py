@@ -1,12 +1,19 @@
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from sqlmodel import func, select
 
 from omka.app.services.daily_job import run_daily_job
+from omka.app.services.scheduler_service import get_schedule as get_scheduler_status
+from omka.app.services.scheduler_service import update_schedule as update_scheduler
 from omka.app.storage.db import CandidateItem, FetchRun, KnowledgeItem, NotificationRun, get_session
 
 router = APIRouter()
+
+
+class ScheduleUpdateRequest(BaseModel):
+    schedule: str
 
 
 @router.get("/latest")
@@ -57,6 +64,19 @@ async def run_job_now():
     """手动运行任务"""
     result = await run_daily_job()
     return result
+
+
+@router.get("/schedule")
+async def get_daily_schedule():
+    return get_scheduler_status()
+
+
+@router.put("/schedule")
+async def update_daily_schedule(data: ScheduleUpdateRequest):
+    ok, message = update_scheduler(data.schedule)
+    if not ok:
+        raise HTTPException(status_code=400, detail=message)
+    return get_scheduler_status()
 
 
 @router.get("/dashboard")
