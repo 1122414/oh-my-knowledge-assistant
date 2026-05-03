@@ -44,6 +44,7 @@ HELP_TEXT = """OMKA 知识助手命令：
 /omka candidate list — 查看候选列表
 /omka candidate save <candidate_id> — 确认入库
 /omka candidate ignore <candidate_id> — 忽略候选
+/omka candidate ignore all — 批量忽略所有待处理候选
 /omka candidate later <candidate_id> — 稍后阅读
 
 知识库：
@@ -60,6 +61,10 @@ HELP_TEXT = """OMKA 知识助手命令：
 /omka push status — 查看推送状态
 /omka push pause — 暂停推送
 /omka push resume — 恢复推送
+
+定时任务：
+/omka schedule — 查看定时任务
+/omka schedule set <时间> — 设置定时 (如: 每天9:30 / 每周一18:00 / 0 9 * * *)
 
 推荐反馈：
 /omka why <candidate_id> — 查看推荐原因
@@ -225,6 +230,7 @@ class FeishuCommandRouter:
             "candidate": self._handle_candidate,
             "config": self._handle_config,
             "push": self._handle_push,
+            "schedule": self._handle_schedule,
             "knowledge": self._handle_knowledge,
             "confirm": self._handle_confirm,
             "cancel": self._handle_cancel,
@@ -723,9 +729,18 @@ class FeishuCommandRouter:
             if len(args) < 2:
                 return FeishuCommandResult(success=False, message="请提供候选 ID", command=FeishuCommandType.CANDIDATE)
             candidate_id = args[1]
+            if candidate_id.lower() == "all":
+                count = CandidateActionService.ignore_all_candidates()
+                return FeishuCommandResult(success=True, message=f"🚫 已批量忽略\n\n忽略数量: {count}", command=FeishuCommandType.CANDIDATE)
             if CandidateActionService.ignore_candidate(candidate_id):
                 return FeishuCommandResult(success=True, message=f"🚫 已忽略\n\n候选: {candidate_id}", command=FeishuCommandType.CANDIDATE)
             return FeishuCommandResult(success=False, message=f"候选不存在: {candidate_id}", command=FeishuCommandType.CANDIDATE)
+
+        if subcommand == "ignore_all":
+            if not PermissionService.check_permission(self._current_sender_id, "operator"):
+                return FeishuCommandResult(success=False, message="权限不足，批量忽略候选需要 operator 权限", command=FeishuCommandType.CANDIDATE)
+            count = CandidateActionService.ignore_all_candidates()
+            return FeishuCommandResult(success=True, message=f"🚫 已批量忽略所有待处理候选\n\n忽略数量: {count}", command=FeishuCommandType.CANDIDATE)
 
         if subcommand == "later":
             if not PermissionService.check_permission(self._current_sender_id, "operator"):
@@ -739,7 +754,7 @@ class FeishuCommandRouter:
 
         return FeishuCommandResult(
             success=False,
-            message=f"未知候选子命令: {subcommand}\n可用: list / save / ignore / later",
+            message=f"未知候选子命令: {subcommand}\n可用: list / save / ignore / ignore_all / later",
             command=FeishuCommandType.CANDIDATE,
         )
 
@@ -900,6 +915,47 @@ class FeishuCommandRouter:
             success=False,
             message=f"未知推送子命令: {subcommand}\n可用: status / pause / resume / set",
             command=FeishuCommandType.PUSH,
+        )
+
+    async def _handle_schedule(self, args: list[str]) -> FeishuCommandResult:
+        from omka.app.services.action_service import PermissionService
+        from omka.app.services.scheduler_service import get_schedule, update_schedule
+
+        if not args:
+            info = get_schedule()
+            message = (
+                f"📅 定时任务\n\n"
+                f"Cron: {info['cron']}\n"
+                f"时区: {info['timezone']}\n"
+                f"下次运行: {info['next_run_time'] or '未启动'}\n"
+                f"状态: {'运行中' if info['running'] else '未启动'}"
+            )
+            return FeishuCommandResult(success=True, message=message, command=FeishuCommandType.UNKNOWN)
+
+        sub = args[0].lower()
+        if sub == "set":
+            if not PermissionService.check_permission(self._current_sender_id, "operator"):
+                return FeishuCommandResult(
+                    success=False,
+                    message="权限不足，设置定时任务需要 operator 权限",
+                    command=FeishuCommandType.UNKNOWN,
+                )
+            if len(args) < 2:
+                return FeishuCommandResult(
+                    success=False,
+                    message="请提供定时表达式\n\n可用示例:\n- 每天 9:30\n- 每周一 18:00\n- 0 9 * * *",
+                    command=FeishuCommandType.UNKNOWN,
+                )
+            schedule_text = " ".join(args[1:])
+            ok, message = update_schedule(schedule_text)
+            return FeishuCommandResult(
+                success=ok, message=message, command=FeishuCommandType.UNKNOWN,
+            )
+
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知子命令: {sub}\n可用: set",
+            command=FeishuCommandType.UNKNOWN,
         )
 
     async def _handle_assets(self, args: list[str]) -> FeishuCommandResult:

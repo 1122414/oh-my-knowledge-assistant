@@ -29,10 +29,11 @@ AVAILABLE_COMMANDS = """
 - source.run <source_id> — 立即运行信息源
 
 候选池管理：
-- candidate.list — 查看候选列表
-- candidate.save <candidate_id> — 确认入库
-- candidate.ignore <candidate_id> — 忽略候选
-- candidate.later <candidate_id> — 稍后阅读
+ - candidate.list — 查看候选列表
+ - candidate.save <candidate_id> — 确认入库
+ - candidate.ignore <candidate_id> — 忽略候选
+ - candidate.ignore_all — 忽略所有待处理候选
+ - candidate.later <candidate_id> — 稍后阅读
 
 知识库管理：
 - knowledge.list — 查看知识库
@@ -45,9 +46,13 @@ AVAILABLE_COMMANDS = """
 - config.set <key> <value> — 设置配置值
 
 推送管理：
-- push.status — 查看推送状态
-- push.pause — 暂停推送
-- push.resume — 恢复推送
+ - push.status — 查看推送状态
+ - push.pause — 暂停推送
+ - push.resume — 恢复推送
+
+定时任务管理：
+ - schedule.get — 查看定时任务
+ - schedule.set <schedule_text> — 设置定时任务
 
 记忆管理：
 - memory.list — 查看记忆列表
@@ -87,6 +92,21 @@ FEW_SHOT_EXAMPLES = """
 
 用户：我不感兴趣第三个候选
 输出：{"command": "candidate.ignore", "args": ["3"], "confidence": 0.88}
+
+用户：删除所有候选内容
+输出：{"command": "candidate.ignore_all", "args": [], "confidence": 0.95}
+
+用户：把所有候选都忽略掉
+输出：{"command": "candidate.ignore_all", "args": [], "confidence": 0.96}
+
+用户：以后每天早上9点自动跑
+输出：{"command": "schedule.set", "args": ["每天9点"], "confidence": 0.96}
+
+用户：把知识抓取改成每周一 18:00
+输出：{"command": "schedule.set", "args": ["每周一 18:00"], "confidence": 0.94}
+
+用户：现在定时任务是什么时候
+输出：{"command": "schedule.get", "args": [], "confidence": 0.95}
 """
 
 
