@@ -407,6 +407,10 @@ def build_feishu_api_service() -> FeishuApiService | None:
         enabled=get_setting("feishu_enabled", False),
         app_id=get_setting("feishu_app_id", ""),
         app_secret=get_setting("feishu_app_secret", ""),
+        doc_folder_token=get_setting("feishu_doc_folder_token", ""),
+        base_folder_token=get_setting("feishu_base_folder_token", ""),
+        sheet_folder_token=get_setting("feishu_sheet_folder_token", ""),
+        default_calendar_id=get_setting("feishu_default_calendar_id", ""),
     )
     if not config.is_configured():
         logger.warning("飞书未配置，无法创建 FeishuApiService")

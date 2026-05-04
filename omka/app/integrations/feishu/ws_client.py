@@ -116,9 +116,45 @@ def _ws_process_main(config_dict: dict) -> None:
                 action_value = {"raw": action_value_str}
 
             proc_logger.info(
-                "卡片动作 | action=%s",
-                action_value,
+                "卡片动作解析 | action_type=%s | candidate_id=%s",
+                action_value.get("action", "?"),
+                action_value.get("id", "?"),
             )
+
+            act = action_value.get("action", "")
+            candidate_id = action_value.get("id", "")
+            if act and candidate_id:
+                operator = getattr(event, "operator", None)
+                open_id = operator.open_id if operator and hasattr(operator, "open_id") else ""
+
+                synthetic_text = json.dumps({"text": f"/omka candidate {act} {candidate_id}"})
+                synthetic_payload = {
+                    "header": {
+                        "event_id": data.header.event_id if data.header else "",
+                        "event_type": "im.message.receive_v1",
+                        "token": config.verification_token,
+                    },
+                    "event": {
+                        "message": {
+                            "chat_id": "",
+                            "chat_type": "p2p",
+                            "message_id": "",
+                            "message_type": "text",
+                            "content": synthetic_text,
+                        },
+                        "sender": {
+                            "sender_id": {"open_id": open_id},
+                        },
+                    },
+                }
+                proc_logger.info("卡片动作转为命令 | cmd=%s %s", act, candidate_id)
+                future = asyncio.run_coroutine_threadsafe(
+                    event_handler_instance.handle_event(synthetic_payload), loop
+                )
+                try:
+                    future.result(timeout=30)
+                except concurrent.futures.TimeoutError:
+                    proc_logger.error("卡片动作处理超时")
         except Exception as e:
             proc_logger.error("处理卡片动作失败 | error=%s\n%s", e, traceback.format_exc())
 

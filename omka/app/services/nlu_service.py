@@ -61,6 +61,25 @@ AVAILABLE_COMMANDS = """
 - memory.confirm <记忆ID> — 确认候选记忆
 - memory.reject <记忆ID> — 拒绝候选记忆
 - memory.delete <记忆ID> — 删除记忆
+
+飞书云文档：
+- doc.create <标题> [内容] — 创建飞书云文档
+- doc.digest — 将最新简报保存为飞书文档
+
+飞书多维表格：
+- base.import — 将知识库导入多维表格
+- base.create <名称> — 创建多维表格
+
+飞书电子表格：
+- sheet.export.candidates — 候选池导出为表格
+- sheet.export.knowledge — 知识库导出为表格
+
+飞书日历：
+- calendar.list — 查看日历列表
+- calendar.review <时间> — 创建知识回顾日历事件
+
+飞书任务：
+- task.add <内容> — 添加飞书任务
 """
 
 FEW_SHOT_EXAMPLES = """
@@ -107,6 +126,27 @@ FEW_SHOT_EXAMPLES = """
 
 用户：现在定时任务是什么时候
 输出：{"command": "schedule.get", "args": [], "confidence": 0.95}
+
+用户：把最新简报保存为飞书文档
+输出：{"command": "doc.digest", "args": [], "confidence": 0.95}
+
+用户：创建一个云文档叫今日知识回顾
+输出：{"command": "doc.create", "args": ["今日知识回顾"], "confidence": 0.94}
+
+用户：把知识库导入飞书多维表格
+输出：{"command": "base.import", "args": [], "confidence": 0.97}
+
+用户：把候选池导出为电子表格
+输出：{"command": "sheet.export.candidates", "args": [], "confidence": 0.96}
+
+用户：查看飞书日历
+输出：{"command": "calendar.list", "args": [], "confidence": 0.98}
+
+用户：创建一个明天9点的知识回顾日历
+输出：{"command": "calendar.review", "args": ["9:00"], "confidence": 0.94}
+
+用户：添加一个飞书任务阅读 LangGraph 文档
+输出：{"command": "task.add", "args": ["阅读 LangGraph 文档"], "confidence": 0.95}
 """
 
 

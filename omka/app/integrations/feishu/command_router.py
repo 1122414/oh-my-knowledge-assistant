@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -1089,8 +1090,8 @@ class FeishuCommandRouter:
                 {
                     "标题": item.title or "",
                     "摘要": (item.summary or "")[:500],
-                    "分数": int(item.score * 100) if item.score else 0,
-                    "来源": item.source_url or "",
+                    "分数": int((item.item_metadata.get("score", 0) if item.item_metadata else 0) * 100),
+                    "来源": item.url or "",
                 }
                 for item in items
             ]
@@ -1163,7 +1164,7 @@ class FeishuCommandRouter:
                     ).all()
                 headers = ["标题", "类型", "分数", "来源"]
                 rows = [headers] + [
-                    [item.title or "", item.item_type or "", str(item.score or 0), item.source_url or ""]
+                    [item.title or "", item.item_type or "", str(item.score or 0), item.url or ""]
                     for item in items
                 ]
             else:
@@ -1171,7 +1172,7 @@ class FeishuCommandRouter:
                     items = session.exec(select(KnowledgeItem).limit(30)).all()
                 headers = ["标题", "摘要", "分数"]
                 rows = [headers] + [
-                    [item.title or "", (item.summary or "")[:200], str(item.score or 0)]
+                    [item.title or "", (item.summary or "")[:200], str(item.item_metadata.get("score", 0) if item.item_metadata else 0)]
                     for item in items
                 ]
 
@@ -1457,7 +1458,7 @@ class FeishuCommandRouter:
             "sender_id": self._current_sender_id,
             "action_type": action_type,
             "params": params,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         return (
             f"⚠️ 这是一个高危操作，需要二次确认。\n\n"
