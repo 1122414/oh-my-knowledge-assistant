@@ -40,6 +40,10 @@ def _build_full_config() -> FeishuConfig:
         agent_conversation_enabled=get_setting("feishu_agent_conversation_enabled", False),
         agent_session_ttl_minutes=get_setting("feishu_agent_session_ttl_minutes", 60),
         agent_max_message_chars=get_setting("feishu_agent_max_message_chars", 4000),
+        doc_folder_token=get_setting("feishu_doc_folder_token", ""),
+        base_folder_token=get_setting("feishu_base_folder_token", ""),
+        sheet_folder_token=get_setting("feishu_sheet_folder_token", ""),
+        default_calendar_id=get_setting("feishu_default_calendar_id", ""),
     )
 
 
@@ -59,8 +63,6 @@ async def send_latest_digest():
 
 @router.get("/message-runs")
 async def list_message_runs(limit: int = 20):
-    from sqlmodel import select
-
     with get_session() as session:
         runs = session.exec(
             select(FeishuMessageRun).order_by(FeishuMessageRun.created_at.desc()).limit(limit)
@@ -84,8 +86,6 @@ async def list_message_runs(limit: int = 20):
 
 @router.get("/event-logs")
 async def list_event_logs(limit: int = 20):
-    from sqlmodel import select
-
     with get_session() as session:
         logs = session.exec(
             select(FeishuEventLog).order_by(FeishuEventLog.created_at.desc()).limit(limit)
@@ -219,6 +219,38 @@ async def disable_conversation(conversation_id: int):
         session.commit()
 
     return {"message": "已解绑", "id": conversation_id}
+
+
+class FeishuTestApiServiceResponse(BaseModel):
+    ok: bool
+    code: int = -1
+    msg: str = ""
+    error: str = ""
+
+
+@router.post("/test-api-service", response_model=FeishuTestApiServiceResponse)
+async def test_api_service():
+    """测试 FeishuApiService 连通性（使用 lark.Client 获取用户列表）"""
+    from omka.app.integrations.feishu.api_service import FeishuApiService
+
+    config = _build_full_config()
+    if not config.is_configured():
+        return FeishuTestApiServiceResponse(ok=False, error="飞书凭证未配置")
+
+    try:
+        svc = FeishuApiService(config)
+        from lark_oapi.api.contact.v3 import ListUserRequest
+
+        req = ListUserRequest.builder().page_size(1).build()
+        resp = svc.client.contact.v3.user.list(req)
+        return FeishuTestApiServiceResponse(
+            ok=resp.code == 0,
+            code=resp.code,
+            msg=resp.msg,
+        )
+    except Exception as e:
+        logger.error("FeishuApiService 测试失败 | error=%s", e)
+        return FeishuTestApiServiceResponse(ok=False, error=str(e))
 
 
 @router.post("/test-credentials", response_model=FeishuTestResponse)

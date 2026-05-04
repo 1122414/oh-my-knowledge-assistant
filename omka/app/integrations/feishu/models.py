@@ -27,6 +27,11 @@ class FeishuCommandType(str, Enum):
     CONFIG = "config"
     PUSH = "push"
     KNOWLEDGE = "knowledge"
+    DOC = "doc"
+    BASE = "base"
+    SHEET = "sheet"
+    CALENDAR = "calendar"
+    TASK = "task"
     UNKNOWN = "unknown"
 
 

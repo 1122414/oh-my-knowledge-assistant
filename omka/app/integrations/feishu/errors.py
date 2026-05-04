@@ -22,5 +22,7 @@ class FeishuEventError(FeishuError):
     """飞书事件处理错误"""
 
 
-class FeishuRateLimitError(FeishuError):
-    """飞书频率限制错误"""
+class FeishuApiError(FeishuError):
+    """飞书 API 调用错误"""
+
+

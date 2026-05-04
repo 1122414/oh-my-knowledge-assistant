@@ -33,6 +33,10 @@ def _build_feishu_config() -> FeishuConfig:
         agent_conversation_enabled=get_setting("feishu_agent_conversation_enabled", False),
         agent_session_ttl_minutes=get_setting("feishu_agent_session_ttl_minutes", 60),
         agent_max_message_chars=get_setting("feishu_agent_max_message_chars", 4000),
+        doc_folder_token=get_setting("feishu_doc_folder_token", ""),
+        base_folder_token=get_setting("feishu_base_folder_token", ""),
+        sheet_folder_token=get_setting("feishu_sheet_folder_token", ""),
+        default_calendar_id=get_setting("feishu_default_calendar_id", ""),
     )
 
 

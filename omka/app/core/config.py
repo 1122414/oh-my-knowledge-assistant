@@ -154,6 +154,11 @@ class Settings(BaseSettings):
     feishu_admin_open_ids: str = Field(default="", description="管理员 open_id 列表（逗号分隔）")
     feishu_operator_open_ids: str = Field(default="", description="操作员 open_id 列表（逗号分隔）")
 
+    feishu_doc_folder_token: str = Field(default="", description="云文档默认文件夹 token")
+    feishu_base_folder_token: str = Field(default="", description="多维表格默认文件夹 token")
+    feishu_sheet_folder_token: str = Field(default="", description="电子表格默认文件夹 token")
+    feishu_default_calendar_id: str = Field(default="", description="默认日历 ID")
+
     # ===========================================
     # Agent 配置
     # ===========================================
@@ -229,7 +234,7 @@ class Settings(BaseSettings):
             d.mkdir(parents=True, exist_ok=True)
 
 
-@lru_cache
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """获取全局配置实例（单例模式）"""
     settings = Settings()

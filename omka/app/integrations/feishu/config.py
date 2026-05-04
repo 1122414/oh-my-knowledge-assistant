@@ -45,6 +45,11 @@ class FeishuConfig(BaseModel):
 
     auto_bind_direct_chat: bool = Field(default=True, description="自动绑定单聊会话")
 
+    doc_folder_token: str = Field(default="", description="云文档默认文件夹 token")
+    base_folder_token: str = Field(default="", description="多维表格默认文件夹 token")
+    sheet_folder_token: str = Field(default="", description="电子表格默认文件夹 token")
+    default_calendar_id: str = Field(default="", description="默认日历 ID")
+
     def is_configured(self) -> bool:
         """检查是否已配置必要的凭证"""
         return bool(self.app_id and self.app_secret)
@@ -73,4 +78,8 @@ class FeishuConfig(BaseModel):
             "agent_conversation_enabled": self.agent_conversation_enabled,
             "agent_session_ttl_minutes": self.agent_session_ttl_minutes,
             "agent_max_message_chars": self.agent_max_message_chars,
+            "doc_folder_token": self.doc_folder_token,
+            "base_folder_token": self.base_folder_token,
+            "sheet_folder_token": self.sheet_folder_token,
+            "default_calendar_id": self.default_calendar_id,
         }

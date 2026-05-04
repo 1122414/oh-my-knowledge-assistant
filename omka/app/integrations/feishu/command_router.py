@@ -81,7 +81,26 @@ HELP_TEXT = """OMKA 知识助手命令：
 /omka memory delete <记忆ID> — 删除记忆
 
 多模态资产：
-/omka assets — 查看资产列表"""
+/omka assets — 查看资产列表
+
+飞书云文档：
+/omka doc digest — 将最新简报保存为飞书文档
+/omka doc create <标题> [内容] — 创建飞书云文档
+
+飞书多维表格：
+/omka base import — 将知识库导入多维表格
+/omka base create <名称> — 创建多维表格
+
+飞书电子表格：
+/omka sheet export candidates — 候选池导出为表格
+/omka sheet export knowledge — 知识库导出为表格
+
+飞书日历：
+/omka calendar list — 查看日历列表
+/omka calendar review <时间> — 创建知识回顾日历事件
+
+飞书任务：
+/omka task add <内容> — 添加飞书任务"""
 
 
 class FeishuCommandRouter:
@@ -235,6 +254,11 @@ class FeishuCommandRouter:
             "confirm": self._handle_confirm,
             "cancel": self._handle_cancel,
             "assets": self._handle_assets,
+            "doc": self._handle_doc,
+            "base": self._handle_base,
+            "sheet": self._handle_sheet,
+            "calendar": self._handle_calendar,
+            "task": self._handle_task,
         }
         return handlers.get(command.lower())
 
@@ -957,6 +981,315 @@ class FeishuCommandRouter:
             message=f"未知子命令: {sub}\n可用: set",
             command=FeishuCommandType.UNKNOWN,
         )
+
+    async def _handle_doc(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请指定子命令: create 或 digest\n示例: /omka doc create 标题 内容",
+                command=FeishuCommandType.DOC,
+            )
+        sub = args[0].lower()
+        if sub == "digest":
+            return await self._handle_doc_digest(args[1:])
+        elif sub == "create":
+            return await self._handle_doc_create(args[1:])
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知子命令: {sub}\n可用: create, digest",
+            command=FeishuCommandType.DOC,
+        )
+
+    async def _handle_doc_digest(self, _args: list[str]) -> FeishuCommandResult:
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置，无法创建文档", command=FeishuCommandType.DOC)
+
+            digest_path = self._find_latest_digest()
+            if digest_path is None:
+                return FeishuCommandResult(success=False, message="未找到最新简报，请先运行每日任务", command=FeishuCommandType.DOC)
+
+            content = digest_path.read_text(encoding="utf-8")
+            title = f"OMKA 每日简报 — {digest_path.stem}"
+            result = await svc.create_document(title, content)
+            return FeishuCommandResult(
+                success=True,
+                message=f"飞书文档已创建\n\n{result['url']}",
+                command=FeishuCommandType.DOC,
+            )
+        except Exception as e:
+            logger.error("创建简报文档失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"创建文档失败: {e}", command=FeishuCommandType.DOC)
+
+    async def _handle_doc_create(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(success=False, message="请提供文档标题\n示例: /omka doc create 测试文档", command=FeishuCommandType.DOC)
+        title = args[0]
+        content = " ".join(args[1:]) if len(args) > 1 else ""
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置，无法创建文档", command=FeishuCommandType.DOC)
+            result = await svc.create_document(title, content)
+            return FeishuCommandResult(
+                success=True,
+                message=f"云文档已创建\n\n{result['url']}",
+                command=FeishuCommandType.DOC,
+            )
+        except Exception as e:
+            logger.error("创建云文档失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"创建文档失败: {e}", command=FeishuCommandType.DOC)
+
+    async def _handle_base(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请指定子命令: create 或 import\n示例: /omka base import",
+                command=FeishuCommandType.BASE,
+            )
+        sub = args[0].lower()
+        if sub == "import":
+            return await self._handle_base_import(args[1:])
+        elif sub == "create":
+            return await self._handle_base_create(args[1:])
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知子命令: {sub}\n可用: create, import",
+            command=FeishuCommandType.BASE,
+        )
+
+    async def _handle_base_import(self, _args: list[str]) -> FeishuCommandResult:
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置，无法创建多维表格", command=FeishuCommandType.BASE)
+
+            with get_session() as session:
+                items = session.exec(select(KnowledgeItem).limit(50)).all()
+
+            if not items:
+                return FeishuCommandResult(success=False, message="知识库为空，没有可导入的内容", command=FeishuCommandType.BASE)
+
+            base_result = await svc.create_base("OMKA 知识库")
+            app_token = base_result["app_token"]
+
+            fields = [
+                {"name": "标题", "type": 1},
+                {"name": "摘要", "type": 1},
+                {"name": "分数", "type": 2},
+                {"name": "来源", "type": 1},
+            ]
+            table_id = await svc.create_table_with_fields(app_token, "知识条目", fields)
+
+            records = [
+                {
+                    "标题": item.title or "",
+                    "摘要": (item.summary or "")[:500],
+                    "分数": int(item.score * 100) if item.score else 0,
+                    "来源": item.source_url or "",
+                }
+                for item in items
+            ]
+            await svc.insert_records(app_token, table_id, records)
+
+            return FeishuCommandResult(
+                success=True,
+                message=f"多维表格已创建\n\n导入 {len(items)} 条知识条目\n{base_result['url']}",
+                command=FeishuCommandType.BASE,
+            )
+        except Exception as e:
+            logger.error("导入知识库到多维表格失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"导入失败: {e}", command=FeishuCommandType.BASE)
+
+    async def _handle_base_create(self, args: list[str]) -> FeishuCommandResult:
+        name = args[0] if args else "OMKA 数据表"
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置，无法创建多维表格", command=FeishuCommandType.BASE)
+            result = await svc.create_base(name)
+            return FeishuCommandResult(
+                success=True,
+                message=f"多维表格已创建\n\n{result['url']}",
+                command=FeishuCommandType.BASE,
+            )
+        except Exception as e:
+            logger.error("创建多维表格失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"创建失败: {e}", command=FeishuCommandType.BASE)
+
+    async def _handle_sheet(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请指定子命令: export\n示例: /omka sheet export candidates",
+                command=FeishuCommandType.SHEET,
+            )
+        sub = args[0].lower()
+        if sub == "export":
+            return await self._handle_sheet_export(args[1:])
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知子命令: {sub}\n可用: export",
+            command=FeishuCommandType.SHEET,
+        )
+
+    async def _handle_sheet_export(self, args: list[str]) -> FeishuCommandResult:
+        target = args[0].lower() if args else ""
+        if target not in ("candidates", "knowledge"):
+            return FeishuCommandResult(
+                success=False,
+                message="请指定导出目标: candidates 或 knowledge\n示例: /omka sheet export candidates",
+                command=FeishuCommandType.SHEET,
+            )
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置，无法创建电子表格", command=FeishuCommandType.SHEET)
+
+            title = f"OMKA {'候选池' if target == 'candidates' else '知识库'}"
+            result = await svc.create_spreadsheet(title)
+            token = result["spreadsheet_token"]
+
+            if target == "candidates":
+                with get_session() as session:
+                    items = session.exec(
+                        select(CandidateItem).where(CandidateItem.status == "pending").limit(20)
+                    ).all()
+                headers = ["标题", "类型", "分数", "来源"]
+                rows = [headers] + [
+                    [item.title or "", item.item_type or "", str(item.score or 0), item.source_url or ""]
+                    for item in items
+                ]
+            else:
+                with get_session() as session:
+                    items = session.exec(select(KnowledgeItem).limit(30)).all()
+                headers = ["标题", "摘要", "分数"]
+                rows = [headers] + [
+                    [item.title or "", (item.summary or "")[:200], str(item.score or 0)]
+                    for item in items
+                ]
+
+            await svc.write_sheet_values(token, f"Sheet1!A1:C{len(rows)}", rows)
+            return FeishuCommandResult(
+                success=True,
+                message=f"电子表格已创建\n\n导出 {len(rows) - 1} 条数据\n{result['url']}",
+                command=FeishuCommandType.SHEET,
+            )
+        except Exception as e:
+            logger.error("导出电子表格失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"导出失败: {e}", command=FeishuCommandType.SHEET)
+
+    async def _handle_calendar(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请指定子命令: list 或 review\n示例: /omka calendar review 9:00",
+                command=FeishuCommandType.CALENDAR,
+            )
+        sub = args[0].lower()
+        if sub == "list":
+            return await self._handle_calendar_list(args[1:])
+        elif sub == "review":
+            return await self._handle_calendar_review(args[1:])
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知子命令: {sub}\n可用: list, review",
+            command=FeishuCommandType.CALENDAR,
+        )
+
+    async def _handle_calendar_list(self, _args: list[str]) -> FeishuCommandResult:
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置", command=FeishuCommandType.CALENDAR)
+            calendars = await svc.list_calendars()
+            if not calendars:
+                return FeishuCommandResult(success=True, message="暂无日历", command=FeishuCommandType.CALENDAR)
+            lines = [f"• {c['summary']} ({c['calendar_id'][:20]}...)" for c in calendars[:10]]
+            return FeishuCommandResult(
+                success=True,
+                message="日历列表\n\n" + "\n".join(lines),
+                command=FeishuCommandType.CALENDAR,
+            )
+        except Exception as e:
+            logger.error("获取日历列表失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"获取失败: {e}", command=FeishuCommandType.CALENDAR)
+
+    async def _handle_calendar_review(self, args: list[str]) -> FeishuCommandResult:
+        time_str = args[0] if args else "9:00"
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置", command=FeishuCommandType.CALENDAR)
+
+            calendars = await svc.list_calendars()
+            if not calendars:
+                return FeishuCommandResult(success=False, message="未找到可用日历", command=FeishuCommandType.CALENDAR)
+
+            cal_id = calendars[0]["calendar_id"]
+            from datetime import datetime, timezone, timedelta
+            now = datetime.now(timezone.utc)
+            start_ts = int(now.timestamp())
+            end_ts = int((now + timedelta(hours=1)).timestamp())
+
+            await svc.create_calendar_event(
+                cal_id,
+                "OMKA 知识回顾",
+                f"每日知识回顾提醒 — {now.strftime('%Y-%m-%d')}",
+                start_ts,
+                end_ts,
+            )
+            return FeishuCommandResult(
+                success=True,
+                message=f"日历事件已创建\n\n时间: {time_str}\n日历: {calendars[0]['summary']}",
+                command=FeishuCommandType.CALENDAR,
+            )
+        except Exception as e:
+            logger.error("创建日历事件失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"创建失败: {e}", command=FeishuCommandType.CALENDAR)
+
+    async def _handle_task(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(
+                success=False,
+                message="请指定子命令: add\n示例: /omka task add 阅读 LangGraph 文档",
+                command=FeishuCommandType.TASK,
+            )
+        sub = args[0].lower()
+        if sub == "add":
+            return await self._handle_task_add(args[1:])
+        return FeishuCommandResult(
+            success=False,
+            message=f"未知子命令: {sub}\n可用: add",
+            command=FeishuCommandType.TASK,
+        )
+
+    async def _handle_task_add(self, args: list[str]) -> FeishuCommandResult:
+        if not args:
+            return FeishuCommandResult(success=False, message="请提供任务内容\n示例: /omka task add 阅读 LangGraph 文档", command=FeishuCommandType.TASK)
+        summary = " ".join(args)
+        try:
+            from omka.app.integrations.feishu.api_service import build_feishu_api_service
+            svc = build_feishu_api_service()
+            if svc is None:
+                return FeishuCommandResult(success=False, message="飞书未配置，无法创建任务", command=FeishuCommandType.TASK)
+            await svc.create_task(summary)
+            return FeishuCommandResult(
+                success=True,
+                message=f"飞书任务已创建\n\n{summary}",
+                command=FeishuCommandType.TASK,
+            )
+        except Exception as e:
+            logger.error("创建任务失败 | error=%s", e)
+            return FeishuCommandResult(success=False, message=f"创建任务失败: {e}", command=FeishuCommandType.TASK)
 
     async def _handle_assets(self, args: list[str]) -> FeishuCommandResult:
         from omka.app.services.action_service import AssetService
