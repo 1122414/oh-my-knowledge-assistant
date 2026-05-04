@@ -354,28 +354,170 @@ class FeishuApiService:
 
 
 def _build_content_json(content: str) -> list[dict]:
-    """将 Markdown 内容拆分为 Feishu docx API 需要的 JSON block 列表"""
+    """将 Markdown 内容解析为 Feishu docx block JSON 列表
+
+    支持: 标题, 粗体, 链接, 行内代码, 无序/有序列表,
+           分隔线, 引用, 待办事项, 正文段落
+    """
     blocks: list[dict] = []
-    paragraphs = content.split("\n\n")
-    for para in paragraphs:
-        para = para.strip()
-        if not para:
+    lines = content.split("\n")
+
+    bullet_group: list[str] = []
+    in_quote = False
+    quote_lines: list[str] = []
+
+    def flush_bullets():
+        nonlocal bullet_group
+        if bullet_group:
+            for bline in bullet_group:
+                blocks.append({
+                    "block_type": 12,
+                    "bullet": {"elements": _parse_inline(bline)},
+                })
+            bullet_group = []
+
+    def flush_quote():
+        nonlocal in_quote, quote_lines
+        if in_quote:
+            text = " ".join(quote_lines)
+            blocks.append({
+                "block_type": 15,
+                "quote": {"elements": _parse_inline(text)},
+            })
+            quote_lines = []
+            in_quote = False
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+
+        if not stripped:
+            flush_bullets()
+            flush_quote()
+            i += 1
             continue
-        text = para.lstrip("#").strip()
-        element = {
-            "elements": [
-                {"text_run": {"content": text}}
-            ]
-        }
-        if para.startswith("###"):
-            blocks.append({"block_type": 5, "heading3": element})
-        elif para.startswith("##"):
-            blocks.append({"block_type": 4, "heading2": element})
-        elif para.startswith("#"):
-            blocks.append({"block_type": 3, "heading1": element})
-        else:
-            blocks.append({"block_type": 2, "text": element})
+
+        if stripped == "---":
+            flush_bullets()
+            flush_quote()
+            blocks.append({"block_type": 22, "divider": {}})
+            i += 1
+            continue
+
+        if stripped.startswith("> "):
+            flush_bullets()
+            in_quote = True
+            quote_lines.append(stripped[2:].strip())
+            i += 1
+            continue
+
+        if stripped.startswith("- [ ] ") or stripped.startswith("- [x] "):
+            flush_bullets()
+            flush_quote()
+            text = stripped[6:].strip()
+            blocks.append({
+                "block_type": 17,
+                "todo": {"elements": _parse_inline(text)},
+            })
+            i += 1
+            continue
+
+        if stripped.startswith("- ") or stripped.startswith("* "):
+            flush_quote()
+            bullet_group.append(stripped[2:].strip())
+            i += 1
+            continue
+
+        if _is_ordered(stripped):
+            flush_quote()
+            text = _strip_ordered_prefix(stripped)
+            blocks.append({
+                "block_type": 12,
+                "bullet": {"elements": _parse_inline(text)},
+            })
+            i += 1
+            continue
+
+        flush_bullets()
+        flush_quote()
+
+        block_type, field_name, content_text = _parse_block_type(line)
+        blocks.append({
+            "block_type": block_type,
+            field_name: {"elements": _parse_inline(content_text)},
+        })
+        i += 1
+
+    flush_bullets()
+    flush_quote()
     return blocks
+
+
+def _parse_block_type(line: str) -> tuple[int, str, str]:
+    stripped = line.strip()
+    if stripped.startswith("###"):
+        return 5, "heading3", stripped[3:].strip()
+    if stripped.startswith("##"):
+        return 4, "heading2", stripped[2:].strip()
+    if stripped.startswith("#"):
+        return 3, "heading1", stripped[1:].strip()
+    return 2, "text", stripped
+
+
+def _is_ordered(line: str) -> bool:
+    import re
+    return bool(re.match(r"^\d+[.)]\s", line.strip()))
+
+
+def _strip_ordered_prefix(line: str) -> str:
+    import re
+    return re.sub(r"^\d+[.)]\s", "", line.strip())
+
+
+def _parse_inline(text: str) -> list[dict]:
+    """解析行内格式: 粗体 **text**, 链接 [text](url), 行内代码 `code`
+
+    返回 Feishu docx elements 列表
+    """
+    import re
+    if not text:
+        return [{"text_run": {"content": ""}}]
+
+    token_pattern = re.compile(
+        r"(\*\*(.+?)\*\*)|"        # bold
+        r"(\[(.+?)\]\((.+?)\))|"   # link [text](url)
+        r"(`(.+?)`)"               # inline code
+    )
+
+    elements: list[dict] = []
+    pos = 0
+
+    for m in token_pattern.finditer(text):
+        if m.start() > pos:
+            elements.append({"text_run": {"content": text[pos:m.start()]}})
+        pos = m.end()
+
+        if m.group(1):  # bold
+            elements.append({"text_run": {
+                "content": m.group(2),
+                "text_element_style": {"bold": True},
+            }})
+        elif m.group(3):  # link
+            elements.append({"text_run": {
+                "content": m.group(4),
+                "text_element_style": {"link": {"url": m.group(5)}},
+            }})
+        elif m.group(6):  # inline code
+            elements.append({"text_run": {
+                "content": m.group(7),
+                "text_element_style": {"inline_code": True},
+            }})
+
+    if pos < len(text):
+        elements.append({"text_run": {"content": text[pos:]}})
+
+    return elements if elements else [{"text_run": {"content": text}}]
 
 
 def build_feishu_api_service() -> FeishuApiService | None:
