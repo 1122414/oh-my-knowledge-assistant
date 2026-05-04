@@ -10,15 +10,9 @@ from lark_oapi.api.bitable.v1 import (
     ReqTable,
 )
 from lark_oapi.api.docx.v1 import (
-    Block,
-    CreateDocumentBlockChildrenRequest,
-    CreateDocumentBlockChildrenRequestBody,
     CreateDocumentRequest,
     CreateDocumentRequestBody,
     RawContentDocumentRequest,
-    Text,
-    TextElement,
-    TextRun,
 )
 from omka.app.core.logging import logger
 from omka.app.integrations.feishu.config import FeishuConfig
@@ -77,22 +71,19 @@ class FeishuApiService:
         doc_url = f"https://bytedance.feishu.cn/docx/{doc_id}"
 
         if content:
-            blocks = _build_content_blocks(content)
-            if blocks:
-                block_req = (
-                    CreateDocumentBlockChildrenRequest.builder()
-                    .document_id(doc_id)
-                    .block_id(doc_id)
-                    .request_body(
-                        CreateDocumentBlockChildrenRequestBody.builder()
-                        .children(blocks)
-                        .build()
-                    )
+            blocks_json = _build_content_json(content)
+            if blocks_json:
+                req = (
+                    lark.BaseRequest.builder()
+                    .http_method(lark.HttpMethod.POST)
+                    .uri(f"/open-apis/docx/v1/documents/{doc_id}/blocks/{doc_id}/children")
+                    .token_types({lark.AccessTokenType.TENANT})
+                    .body({"children": blocks_json})
                     .build()
                 )
-                block_resp = await self._client.docx.v1.document_block_children.acreate(block_req)
-                if block_resp.code != 0:
-                    logger.warning("文档内容写入失败 | doc_id=%s | code=%d", doc_id, block_resp.code)
+                resp = self._client.request(req)
+                if resp.code != 0:
+                    logger.warning("文档内容写入失败 | doc_id=%s | code=%d | msg=%s", doc_id, resp.code, resp.msg)
 
         logger.info("飞书文档创建成功 | doc_id=%s | title=%s", doc_id, title)
         return {"doc_id": doc_id, "url": doc_url}
@@ -362,36 +353,28 @@ class FeishuApiService:
         return data.get("data", {}).get("items", [])
 
 
-def _build_content_blocks(content: str) -> list[Block]:
-    """将 Markdown 内容拆分为 docx Block 列表"""
-    blocks: list[Block] = []
+def _build_content_json(content: str) -> list[dict]:
+    """将 Markdown 内容拆分为 Feishu docx API 需要的 JSON block 列表"""
+    blocks: list[dict] = []
     paragraphs = content.split("\n\n")
     for para in paragraphs:
         para = para.strip()
         if not para:
             continue
         text = para.lstrip("#").strip()
-        text_element = (
-            Text.builder()
-            .elements(
-                [
-                    TextElement.builder()
-                    .text_run(TextRun.builder().content(text).build())
-                    .build()
-                ]
-            )
-            .build()
-        )
+        element = {
+            "elements": [
+                {"text_run": {"content": text}}
+            ]
+        }
         if para.startswith("###"):
-            blocks.append(Block.builder().heading3(text_element).build())
+            blocks.append({"block_type": 11, "heading3": element})
         elif para.startswith("##"):
-            blocks.append(Block.builder().heading2(text_element).build())
+            blocks.append({"block_type": 9, "heading2": element})
         elif para.startswith("#"):
-            blocks.append(Block.builder().heading1(text_element).build())
+            blocks.append({"block_type": 3, "heading1": element})
         else:
-            blocks.append(
-                Block.builder().block_type(2).text(text_element).build()
-            )
+            blocks.append({"block_type": 2, "text": element})
     return blocks
 
 
