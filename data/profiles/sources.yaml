@@ -5,14 +5,236 @@ github:
     - browser-use/browser-use
 
   searches:
-    - name: Browser Agent
-      query: "browser agent"
-      limit: 5
+    # ==========================================
+    # AI Agent
+    # ==========================================
+    - name: AI Agent Framework
+      enabled: true
+      intent: discover_framework
+      query: '"ai agent" framework'
+      description: AI Agent 开发框架
+      must_terms: [agent, framework]
+      nice_terms: [multi-agent, tool-use, autonomous]
+      negative_terms: [awesome, tutorial, template, demo, course]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.2
 
-    - name: RAG Agent
-      query: "rag agent"
-      limit: 5
+    - name: Multi-Agent System
+      enabled: true
+      intent: discover_framework
+      query: '"multi agent" framework'
+      description: 多 Agent 协作框架
+      must_terms: [agent]
+      negative_terms: [awesome, tutorial, demo]
+      languages: [Python]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.0
 
+    - name: Tool-Use Agent
+      enabled: true
+      intent: discover_tool
+      query: '"tool use" agent'
+      description: 工具调用 Agent
+      must_terms: [agent]
+      nice_terms: [function-calling, tool-calling, mcp]
+      negative_terms: [awesome, tutorial]
+      languages: [Python]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.0
+
+    - name: Agent Workflow
+      enabled: true
+      intent: discover_trend
+      query: '"agent workflow"'
+      description: Agent 工作流引擎
+      must_terms: [agent, workflow]
+      negative_terms: [awesome, tutorial, demo]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 180
+      limit_per_query: 5
+      priority: 0.9
+
+    # ==========================================
+    # Browser Agent
+    # ==========================================
+    - name: Playwright Agent
+      enabled: true
+      intent: discover_tool
+      query: '"playwright agent"'
+      description: 基于 Playwright 的浏览器 Agent
+      must_terms: [playwright, agent]
+      nice_terms: [browser, automation, llm]
+      negative_terms: [awesome, tutorial, template]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.2
+
+    - name: Browser Automation Agent
+      enabled: true
+      intent: discover_tool
+      query: '"browser automation" llm agent'
+      description: 浏览器自动化 AI Agent
+      must_terms: [browser, agent]
+      nice_terms: [automation, playwright, selenium]
+      negative_terms: [awesome, tutorial]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.0
+
+    - name: Computer Use Agent
+      enabled: true
+      intent: discover_trend
+      query: '"computer use" agent'
+      description: Computer Use 类型 Agent
+      must_terms: [agent]
+      nice_terms: [computer-use, desktop, gui]
+      negative_terms: [awesome, tutorial, demo]
+      languages: [Python]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 180
+      limit_per_query: 5
+      priority: 0.9
+
+    - name: Web Automation AI
+      enabled: true
+      intent: discover_tool
+      query: '"web automation" ai agent'
+      description: Web 自动化 AI 工具
+      must_terms: [web, agent]
+      nice_terms: [automation, scraping, browser]
+      negative_terms: [awesome, tutorial]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 0.8
+
+    # ==========================================
+    # RAG
+    # ==========================================
+    - name: Agentic RAG
+      enabled: true
+      intent: discover_framework
+      query: '"agentic rag"'
+      description: Agent 驱动的 RAG 系统
+      must_terms: [rag, agent]
+      nice_terms: [retrieval, knowledge, vector]
+      negative_terms: [awesome, tutorial, demo]
+      languages: [Python]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.1
+
+    - name: RAG Framework
+      enabled: true
+      intent: discover_framework
+      query: '"rag framework"'
+      description: RAG 开发框架
+      must_terms: [rag]
+      nice_terms: [retrieval, generation, embedding]
+      negative_terms: [awesome, tutorial]
+      languages: [Python]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.0
+
+    - name: Knowledge Graph RAG
+      enabled: true
+      intent: discover_trend
+      query: '"knowledge graph" rag'
+      description: 知识图谱增强 RAG
+      must_terms: [rag]
+      nice_terms: [graph, entity, relation]
+      negative_terms: [awesome, tutorial]
+      languages: [Python]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 0.9
+
+    - name: Hybrid Search LLM
+      enabled: true
+      intent: discover_trend
+      query: '"hybrid search" llm'
+      description: 混合搜索 + LLM
+      must_terms: [search]
+      nice_terms: [hybrid, vector, keyword, bm25]
+      negative_terms: [awesome, tutorial]
+      languages: [Python]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 0.8
+
+    # ==========================================
+    # Personal Knowledge Management
+    # ==========================================
     - name: Personal Knowledge Assistant
-      query: "personal knowledge assistant llm"
-      limit: 5
+      enabled: true
+      intent: discover_tool
+      query: '"personal knowledge assistant"'
+      description: 个人知识助手
+      must_terms: [knowledge]
+      nice_terms: [assistant, ai, llm, pkm]
+      negative_terms: [awesome, tutorial, demo]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.2
+
+    - name: Local Knowledge Base LLM
+      enabled: true
+      intent: discover_tool
+      query: '"local knowledge base" llm'
+      description: 本地知识库 + LLM
+      must_terms: [knowledge, llm]
+      nice_terms: [local, offline, rag]
+      negative_terms: [awesome, tutorial]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 1.0
+
+    - name: Second Brain AI
+      enabled: true
+      intent: discover_trend
+      query: '"second brain" ai'
+      description: AI 第二大脑
+      must_terms: [ai]
+      nice_terms: [second-brain, note, knowledge, pkm]
+      negative_terms: [awesome, tutorial]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 180
+      limit_per_query: 5
+      priority: 0.9
+
+    - name: AI Note Assistant
+      enabled: true
+      intent: discover_tool
+      query: '"markdown" ai assistant'
+      description: Markdown AI 笔记助手
+      must_terms: [ai, assistant]
+      nice_terms: [markdown, note, obsidian]
+      negative_terms: [awesome, tutorial, demo]
+      languages: [Python, TypeScript]
+      star_bands: [20..300, 300..5000]
+      pushed_after_days: 365
+      limit_per_query: 5
+      priority: 0.8
