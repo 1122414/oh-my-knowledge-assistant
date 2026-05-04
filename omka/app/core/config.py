@@ -93,15 +93,20 @@ class Settings(BaseSettings):
     search_min_stars: int = Field(default=10, description="搜索结果最低 star 数")
     search_max_candidates_per_query: int = Field(default=15, description="每搜索源最大候选数")
     search_expand_queries: bool = Field(default=False, description="是否启用多策略召回")
+    search_quality_min_score: float = Field(default=0.35, description="源头质量最低分数阈值")
+    search_stale_days_threshold: int = Field(default=365, description="仓库停更多少天算过期")
+    search_daily_request_limit: int = Field(default=120, description="每日 GitHub Search API 请求上限")
+    search_daily_enrich_limit: int = Field(default=40, description="每日 enrich 总量上限")
     releases_per_repo: int = Field(default=1, description="每仓库获取 Release 数")
 
     # ===========================================
     # 个性化排序配置
     # ===========================================
-    score_weight_interest: float = Field(default=0.40, description="兴趣匹配权重")
-    score_weight_project: float = Field(default=0.30, description="项目相关权重")
+    score_weight_interest: float = Field(default=0.30, description="兴趣匹配权重")
+    score_weight_project: float = Field(default=0.20, description="项目相关权重")
     score_weight_freshness: float = Field(default=0.15, description="新鲜度权重")
-    score_weight_popularity: float = Field(default=0.15, description="热度权重")
+    score_weight_popularity: float = Field(default=0.10, description="热度权重")
+    score_weight_source_quality: float = Field(default=0.25, description="源头质量权重")
 
     freshness_decay_days: int = Field(default=7, description="新鲜度衰减天数")
     candidate_score_threshold: float = Field(default=0.10, description="候选人最低分数阈值，低于此值的自动忽略")
