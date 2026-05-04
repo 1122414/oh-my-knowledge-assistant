@@ -320,15 +320,26 @@ class FeishuCommandRouter:
 
     async def _handle_latest(self, _args: list[str]) -> FeishuCommandResult:
         try:
-            digest_path = self._find_latest_digest()
-            if digest_path is None:
-                message = "📭 暂无简报数据\n\n请先运行每日任务生成简报。"
+            with get_session() as session:
+                candidates = session.exec(
+                    select(CandidateItem)
+                    .where(CandidateItem.status == "pending")
+                    .order_by(CandidateItem.score.desc())
+                    .limit(settings.digest_top_n)
+                ).all()
+            if not candidates:
+                message = "暂无待推荐内容\n\n运行 /omka run 触发每日任务获取最新推荐。"
             else:
-                summary = self._summarize_digest(digest_path)
-                message = f"📰 最新简报 | {digest_path.stem}\n\n{summary}"
+                lines = []
+                for i, c in enumerate(candidates, 1):
+                    lines.append(f"{i}. {c.title}")
+                    if c.summary:
+                        lines.append(f"   {c.summary[:150]}")
+                    lines.append(f"   score={c.score:.2f} | {c.item_type}")
+                message = f"当前每日推荐 Top {len(candidates)}\n\n" + "\n".join(lines)
         except Exception as e:
-            logger.error("获取最新简报失败 | error=%s", e)
-            message = "获取简报失败，请稍后重试"
+            logger.error("获取最新推荐失败 | error=%s", e)
+            message = "获取推荐失败，请稍后重试"
 
         return FeishuCommandResult(
             success=True,
@@ -1008,12 +1019,20 @@ class FeishuCommandRouter:
             if svc is None:
                 return FeishuCommandResult(success=False, message="飞书未配置，无法创建文档", command=FeishuCommandType.DOC)
 
-            digest_path = self._find_latest_digest()
-            if digest_path is None:
-                return FeishuCommandResult(success=False, message="未找到最新简报，请先运行每日任务", command=FeishuCommandType.DOC)
+            with get_session() as session:
+                candidates = session.exec(
+                    select(CandidateItem)
+                    .where(CandidateItem.status == "pending")
+                    .order_by(CandidateItem.score.desc())
+                    .limit(settings.digest_top_n)
+                ).all()
 
-            content = digest_path.read_text(encoding="utf-8")
-            title = f"OMKA 每日简报 — {digest_path.stem}"
+            if not candidates:
+                return FeishuCommandResult(success=False, message="暂无待推荐内容，请先运行每日任务", command=FeishuCommandType.DOC)
+
+            from datetime import date
+            content = _build_digest_content(str(date.today()), candidates)
+            title = f"OMKA 每日简报 — {date.today()}"
             result = await svc.create_document(title, content)
             return FeishuCommandResult(
                 success=True,
@@ -1469,3 +1488,45 @@ class FeishuCommandRouter:
             f"或回复以下命令取消:\n"
             f"/omka cancel {action_id}"
         )
+
+
+def _build_digest_content(date_str: str, candidates) -> str:
+    lines = [
+        f"# 今日 GitHub 知识简报 | {date_str}",
+        "",
+        f"> 共 {len(candidates)} 条推荐内容",
+        "",
+        "---",
+        "",
+    ]
+    for i, c in enumerate(candidates, 1):
+        score = c.score or 0
+        detail = c.score_detail or {}
+        lines.append(f"## {i}. {c.title}")
+        lines.append("")
+        if c.summary:
+            lines.append(c.summary)
+            lines.append("")
+        lines.append(f"**评分**: {score:.2f}")
+        lines.append("")
+        lines.append("> 评分详情:")
+        for key, label in [
+            ("interest_score", "兴趣匹配"),
+            ("project_score", "项目相关"),
+            ("freshness_score", "新鲜度"),
+            ("popularity_score", "热度"),
+            ("source_quality_score", "源头质量"),
+        ]:
+            val = detail.get(key, 0)
+            lines.append(f"> - {label} {val:.2f}")
+        lines.append("")
+        lines.append(f"- **链接**: {c.url}")
+        lines.append(f"- **类型**: {c.item_type}")
+        if c.matched_interests:
+            lines.append(f"- **相关兴趣**: {', '.join(c.matched_interests)}")
+        if c.matched_projects:
+            lines.append(f"- **相关项目**: {', '.join(c.matched_projects)}")
+        if c.recommendation_reason:
+            lines.append(f"- **推荐理由**: {c.recommendation_reason}")
+        lines.append("")
+    return "\n".join(lines)

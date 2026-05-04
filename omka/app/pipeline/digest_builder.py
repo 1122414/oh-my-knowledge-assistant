@@ -61,6 +61,12 @@ async def generate_digest() -> dict[str, Any]:
     date_str = datetime.now().strftime("%Y-%m-%d")
     digest_path = build_markdown_digest(date_str, digest_items)
 
+    with get_session() as session:
+        for candidate in candidates:
+            candidate.status = "digested"
+            session.add(candidate)
+        session.commit()
+
     logger.info("简报生成完成 | path=%s | items=%d", digest_path, len(digest_items))
     return {"digest_path": str(digest_path), "item_count": len(digest_items)}
 
