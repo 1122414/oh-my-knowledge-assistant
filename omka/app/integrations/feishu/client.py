@@ -67,6 +67,27 @@ class FeishuAppBotClient:
             receive_id_type=receive_id_type or self._config.default_receive_id_type,
         )
 
+    async def send_interactive_card(
+        self,
+        receive_id: str,
+        card_json: dict[str, Any],
+        receive_id_type: str | None = None,
+    ) -> FeishuSendResult:
+        """发送互动卡片消息
+
+        Args:
+            receive_id: 接收者 ID
+            card_json: 飞书卡片 JSON DSL
+            receive_id_type: 接收者类型
+        """
+        content = json.dumps(card_json, ensure_ascii=False)
+        return await self._send_message(
+            receive_id=receive_id,
+            msg_type="interactive",
+            content=content,
+            receive_id_type=receive_id_type or self._config.default_receive_id_type,
+        )
+
     async def reply_text(
         self,
         message_id: str,

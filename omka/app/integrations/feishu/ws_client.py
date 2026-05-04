@@ -13,6 +13,7 @@ def _run_event_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 
 def _ws_process_main(config_dict: dict) -> None:
+    import json
     import lark_oapi as lark
     from lark_oapi.api.im.v1 import P2ImMessageReceiveV1
     from lark_oapi.ws import Client as WsClient
@@ -99,10 +100,34 @@ def _ws_process_main(config_dict: dict) -> None:
         except Exception as e:
             proc_logger.error("处理长连接消息事件失败 | error=%s | type=%s\n%s", e, type(e).__name__, traceback.format_exc())
 
+    def handle_card_action(data) -> None:
+        proc_logger.info("收到飞书卡片动作事件")
+        import traceback
+        try:
+            event = getattr(data, "event", None)
+            if not event:
+                return
+
+            action = getattr(event, "action", None)
+            action_value_str = action.value if action and hasattr(action, "value") else "{}"
+            try:
+                action_value = json.loads(action_value_str)
+            except (json.JSONDecodeError, TypeError):
+                action_value = {"raw": action_value_str}
+
+            proc_logger.info(
+                "卡片动作 | action=%s",
+                action_value,
+            )
+        except Exception as e:
+            proc_logger.error("处理卡片动作失败 | error=%s\n%s", e, traceback.format_exc())
+
     dispatcher = lark.EventDispatcherHandler.builder(
         config.encrypt_key,
         config.verification_token,
-    ).register_p2_im_message_receive_v1(handle_message).build()
+    ).register_p2_im_message_receive_v1(handle_message) \
+     .register_p2_card_action_trigger(handle_card_action) \
+     .build()
 
     ws_client = WsClient(
         app_id=config.app_id,
