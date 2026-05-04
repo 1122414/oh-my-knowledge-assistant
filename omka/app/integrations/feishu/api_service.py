@@ -368,9 +368,9 @@ def _build_content_json(content: str) -> list[dict]:
             ]
         }
         if para.startswith("###"):
-            blocks.append({"block_type": 11, "heading3": element})
+            blocks.append({"block_type": 5, "heading3": element})
         elif para.startswith("##"):
-            blocks.append({"block_type": 9, "heading2": element})
+            blocks.append({"block_type": 4, "heading2": element})
         elif para.startswith("#"):
             blocks.append({"block_type": 3, "heading1": element})
         else:
