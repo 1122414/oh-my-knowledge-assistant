@@ -397,6 +397,49 @@ export function SettingsPage() {
       </Section>
 
       <Section
+        title="飞书文档/表格"
+        icon={FolderOpen}
+        keys={["feishu_doc_folder_token", "feishu_base_folder_token", "feishu_sheet_folder_token", "feishu_default_calendar_id"]}
+        saving={saving}
+        onSave={handleSave}
+      >
+        <div className="space-y-4">
+          <Field
+            label="文档默认文件夹 Token"
+            keyName="feishu_doc_folder_token"
+            placeholder="留空则创建在根目录"
+            help="创建的飞书云文档将默认存放在此文件夹（需先在飞书中创建文件夹）"
+            value={getValue("feishu_doc_folder_token")}
+            onChange={handleChange}
+          />
+          <Field
+            label="多维表格默认文件夹 Token"
+            keyName="feishu_base_folder_token"
+            placeholder="留空则创建在根目录"
+            help="创建的多维表格将默认存放在此文件夹"
+            value={getValue("feishu_base_folder_token")}
+            onChange={handleChange}
+          />
+          <Field
+            label="电子表格默认文件夹 Token"
+            keyName="feishu_sheet_folder_token"
+            placeholder="留空则创建在根目录"
+            help="创建的电子表格将默认存放在此文件夹"
+            value={getValue("feishu_sheet_folder_token")}
+            onChange={handleChange}
+          />
+          <Field
+            label="默认日历 ID"
+            keyName="feishu_default_calendar_id"
+            placeholder="留空则使用主日历"
+            help="日历事件将默认创建到此日历。可通过飞书消息 /omka calendar list 查看可用日历"
+            value={getValue("feishu_default_calendar_id")}
+            onChange={handleChange}
+          />
+        </div>
+      </Section>
+
+      <Section
         title="Scheduler"
         icon={Clock}
         keys={["scheduler_daily_cron", "digest_top_n"]}

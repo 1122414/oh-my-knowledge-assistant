@@ -120,7 +120,13 @@ class FeishuEventHandler:
             try:
                 auth_service = FeishuAuthService(self._config)
                 client = FeishuAppBotClient(self._config, auth_service)
-                result = await client.reply_text(parsed.message_id, command_result.message)
+                if parsed.message_id:
+                    result = await client.reply_text(parsed.message_id, command_result.message)
+                elif parsed.sender_id:
+                    result = await client.send_text(parsed.sender_id, command_result.message, receive_id_type="open_id")
+                else:
+                    logger.warning("无法回复命令结果: message_id 和 sender_id 均为空")
+                    return
                 if not result.success:
                     logger.error("回复命令结果失败 | error=%s | code=%s", result.message, result.error_code)
             except Exception as e:
@@ -132,7 +138,13 @@ class FeishuEventHandler:
             try:
                 auth_service = FeishuAuthService(self._config)
                 client = FeishuAppBotClient(self._config, auth_service)
-                result = await client.reply_text(parsed.message_id, command_result.message)
+                if parsed.message_id:
+                    result = await client.reply_text(parsed.message_id, command_result.message)
+                elif parsed.sender_id:
+                    result = await client.send_text(parsed.sender_id, command_result.message, receive_id_type="open_id")
+                else:
+                    logger.warning("无法回复命令错误: message_id 和 sender_id 均为空")
+                    return
                 if not result.success:
                     logger.error("回复命令错误失败 | error=%s | code=%s", result.message, result.error_code)
             except Exception as e:

@@ -13,6 +13,7 @@ def _run_event_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 
 def _ws_process_main(config_dict: dict) -> None:
+    import concurrent.futures
     import json
     import lark_oapi as lark
     from lark_oapi.api.im.v1 import P2ImMessageReceiveV1
