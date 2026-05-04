@@ -214,8 +214,4 @@ def _check_source_filter(item: dict[str, Any], task) -> str | None:
         if not any(term.lower() in searchable for term in task.must_terms):
             return "must_terms_not_matched"
 
-    quality = item.get("_source_quality", {}).get("source_quality_score", 1)
-    if quality < settings.search_quality_min_score:
-        return "low_source_quality"
-
     return None
