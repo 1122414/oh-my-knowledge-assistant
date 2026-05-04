@@ -85,7 +85,7 @@ def _ws_process_main(config_dict: dict) -> None:
                 },
             }
 
-            import concurrent.futures
+
             proc_logger.info("提交事件到处理器")
             future = asyncio.run_coroutine_threadsafe(
                 event_handler_instance.handle_event(payload), loop
