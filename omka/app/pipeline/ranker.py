@@ -34,6 +34,7 @@ def rank_candidates() -> dict[str, Any]:
                 + scores["project_score"] * settings.score_weight_project
                 + scores["freshness_score"] * settings.score_weight_freshness
                 + scores["popularity_score"] * settings.score_weight_popularity
+                + scores["source_quality_score"] * settings.score_weight_source_quality
             )
 
             candidate.score = round(final_score, 4)
