@@ -256,6 +256,50 @@ def test_09_help_text():
         check(False, f"Error: {e}")
 
 
+def test_09b_rich_formatting():
+    heading("Rich Markdown Parsing")
+    try:
+        from omka.app.integrations.feishu.api_service import _build_content_json, _parse_inline
+
+        digest = (
+            "# OMKA Daily\n\n"
+            "> 共 10 条\n\n"
+            "---\n\n"
+            "## 1. **Important** Item\n\n"
+            "- **Link**: [GitHub](https://github.com)\n"
+            "- **Score**: 0.95\n\n"
+            "---\n\n"
+            "## Tasks\n\n"
+            "- [ ] [Read this](https://example.com)\n"
+        )
+        blocks = _build_content_json(digest)
+
+        check(len(blocks) >= 9, f"Block count >= 9 (got {len(blocks)})")
+
+        types_seen = set(b["block_type"] for b in blocks)
+        check(3 in types_seen, "heading1 block present")
+        check(4 in types_seen, "heading2 block present")
+        check(15 in types_seen, "quote block present")
+        check(22 in types_seen, "divider block present")
+        check(12 in types_seen, "bullet block present")
+        check(17 in types_seen, "todo block present")
+
+        inline = _parse_inline("hello **bold** [link](https://x.com) world")
+        check(len(inline) >= 4, f"Inline elements >= 4 (got {len(inline)})")
+        has_bold = any(
+            e.get("text_run", {}).get("text_element_style", {}).get("bold")
+            for e in inline
+        )
+        has_link = any(
+            e.get("text_run", {}).get("text_element_style", {}).get("link")
+            for e in inline
+        )
+        check(has_bold, "bold inline parsed")
+        check(has_link, "link inline parsed")
+    except Exception as e:
+        check(False, f"Error: {e}")
+
+
 def test_10_env_config():
     heading("Environment Variable Configuration Check")
     env_file = PROJECT_ROOT / ".env.example"
@@ -282,6 +326,7 @@ def main():
     test_07_errors_hierarchy()
     test_08_command_router_handlers()
     test_09_help_text()
+    test_09b_rich_formatting()
     test_10_env_config()
 
     print(f"\n{'=' * 60}")
