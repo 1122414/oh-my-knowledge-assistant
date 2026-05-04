@@ -52,6 +52,7 @@ async def generate_digest() -> dict[str, Any]:
                 "recommendation_reason": candidate.recommendation_reason or "",
                 "matched_interests": candidate.matched_interests,
                 "matched_projects": candidate.matched_projects,
+                "score_detail": candidate.score_detail,
             })
         except Exception as e:
             logger.error("生成摘要失败 | candidate=%s | error=%s", candidate.id, e)
@@ -78,19 +79,24 @@ def build_markdown_digest(date_str: str, items: list[dict[str, Any]]) -> Path:
     ]
 
     for i, item in enumerate(items, 1):
-        lines.extend([
-            f"## {i}. {item['title']}",
-            "",
-            f"- **链接**: {item['url']}",
-            f"- **类型**: {item['type']}",
-            f"- **得分**: {item['score']}",
-            f"- **摘要**: {item['summary']}",
-            f"- **推荐理由**: {item['recommendation_reason']}",
-        ])
-        if item.get("matched_interests"):
-            lines.append(f"- **相关兴趣**: {', '.join(item['matched_interests'])}")
-        if item.get("matched_projects"):
-            lines.append(f"- **相关项目**: {', '.join(item['matched_projects'])}")
+        score = item.get("score", 0)
+        detail = item.get("score_detail", {})
+
+        lines.append(f"## {i}. {item['title']}")
+        lines.append("")
+
+        summary = item.get("summary", "")
+        if summary:
+            lines.append(summary)
+            lines.append("")
+
+        lines.extend(_build_score_explanation(score, detail))
+
+        lines.append(f"- **链接**: {item['url']}")
+        lines.append(f"- **类型**: {item['type']}")
+        reason = item.get("recommendation_reason", "")
+        if reason:
+            lines.append(f"- **推荐理由**: {reason}")
         lines.append("")
 
     lines.extend([
@@ -107,3 +113,41 @@ def build_markdown_digest(date_str: str, items: list[dict[str, Any]]) -> Path:
         f.write("\n".join(lines))
 
     return filepath
+
+
+def _build_score_explanation(final_score: float, detail: dict) -> list[str]:
+    """构建评分解释，展示各维度得分和原因"""
+    from omka.app.core.config import settings
+
+    lines = [f"**评分**: {final_score:.2f}", ""]
+
+    interest = detail.get("interest_score", 0)
+    project = detail.get("project_score", 0)
+    freshness = detail.get("freshness_score", 0)
+    popularity = detail.get("popularity_score", 0)
+    source_quality = detail.get("source_quality_score", 0)
+
+    matched_interests = detail.get("matched_interests", [])
+    matched_projects = detail.get("matched_projects", [])
+
+    items = []
+    items.append(
+        f"兴趣匹配 {interest:.2f} "
+        f"(权重 {settings.score_weight_interest:.0%})"
+        + (f": {', '.join(matched_interests)}" if matched_interests else "")
+    )
+    items.append(
+        f"项目相关 {project:.2f} "
+        f"(权重 {settings.score_weight_project:.0%})"
+        + (f": {', '.join(matched_projects)}" if matched_projects else "")
+    )
+    items.append(f"新鲜度 {freshness:.2f} (权重 {settings.score_weight_freshness:.0%})")
+    items.append(f"热度 {popularity:.2f} (权重 {settings.score_weight_popularity:.0%})")
+    items.append(f"源头质量 {source_quality:.2f} (权重 {settings.score_weight_source_quality:.0%})")
+
+    lines.append("> 评分详情:")
+    for item_line in items:
+        lines.append(f"> - {item_line}")
+    lines.append("")
+
+    return lines
