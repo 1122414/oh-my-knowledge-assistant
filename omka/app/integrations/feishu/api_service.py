@@ -90,7 +90,7 @@ class FeishuApiService:
                     )
                     .build()
                 )
-                block_resp = await self._client.docx.v1.document_block.children.acreate(block_req)
+                block_resp = await self._client.docx.v1.document_block_children.acreate(block_req)
                 if block_resp.code != 0:
                     logger.warning("文档内容写入失败 | doc_id=%s | code=%d", doc_id, block_resp.code)
 
