@@ -370,31 +370,28 @@ def _build_content_blocks(content: str) -> list[Block]:
         para = para.strip()
         if not para:
             continue
-        if para.startswith("###"):
-            block_type = 11
-        elif para.startswith("##"):
-            block_type = 9
-        elif para.startswith("#"):
-            block_type = 3
-        else:
-            block_type = 2
         text = para.lstrip("#").strip()
-        blocks.append(
-            Block.builder()
-            .block_type(block_type)
-            .text(
-                Text.builder()
-                .elements(
-                    [
-                        TextElement.builder()
-                        .text_run(TextRun.builder().content(text).build())
-                        .build()
-                    ]
-                )
-                .build()
+        text_element = (
+            Text.builder()
+            .elements(
+                [
+                    TextElement.builder()
+                    .text_run(TextRun.builder().content(text).build())
+                    .build()
+                ]
             )
             .build()
         )
+        if para.startswith("###"):
+            blocks.append(Block.builder().heading3(text_element).build())
+        elif para.startswith("##"):
+            blocks.append(Block.builder().heading2(text_element).build())
+        elif para.startswith("#"):
+            blocks.append(Block.builder().heading1(text_element).build())
+        else:
+            blocks.append(
+                Block.builder().block_type(2).text(text_element).build()
+            )
     return blocks
 
 
