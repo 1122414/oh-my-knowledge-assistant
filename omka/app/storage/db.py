@@ -81,22 +81,6 @@ class FetchRun(BaseSchema, table=True):
 
 
 # ===========================================
-# 请求缓存表（ETag / Last-Modified）
-# ===========================================
-class RequestCache(BaseSchema, table=True):
-    """HTTP 请求缓存，用于条件请求"""
-
-    __tablename__ = "request_cache"
-
-    id: int | None = Field(default=None, primary_key=True)
-    request_url: str = Field(description="请求 URL")
-    etag: str | None = Field(default=None, description="ETag 响应头")
-    last_modified: str | None = Field(default=None, description="Last-Modified 响应头")
-    last_status: int = Field(description="上次响应状态码")
-    last_fetched_at: datetime = Field(default_factory=datetime.utcnow, description="上次请求时间")
-
-
-# ===========================================
 # 原始抓取数据表
 # ===========================================
 class RawItem(BaseSchema, table=True):
@@ -256,22 +240,6 @@ class NotificationRun(BaseSchema, table=True):
     error_message: str | None = Field(default=None, description="错误信息")
     response_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="渠道响应")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
-
-
-# ===========================================
-# 飞书 Token 缓存表
-# ===========================================
-class FeishuTokenCache(BaseSchema, table=True):
-    """飞书 tenant_access_token 缓存"""
-
-    __tablename__ = "feishu_token_cache"
-
-    id: int | None = Field(default=None, primary_key=True)
-    token_type: str = Field(default="tenant_access_token", description="Token 类型")
-    access_token: str = Field(description="访问令牌")
-    expires_at: datetime = Field(description="过期时间")
-    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
-    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
 
 
 # ===========================================

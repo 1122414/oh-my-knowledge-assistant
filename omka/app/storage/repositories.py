@@ -5,9 +5,11 @@
 
 import hashlib
 import json
+from datetime import datetime
 from typing import Any
 
 from omka.app.storage.db import RawItem, SourceConfig, get_session
+from sqlmodel import select
 
 
 def compute_raw_item_id(item_type: str, source_id: str, raw_data: dict[str, Any]) -> str:
@@ -36,21 +38,46 @@ def save_raw_items(raw_items: list[dict[str, Any]], source_config: SourceConfig)
 
 
 def load_profile_sources() -> int:
-    """从 data/profiles/sources.yaml 加载预配置的数据源到数据库
+    """从 data/profiles/sources.yaml 同步预配置的数据源到数据库
 
-    返回成功加载的数量。
+    新增 YAML 中存在但 DB 中不存在的源，禁用 DB 中存在但 YAML 中已删除的源（仅 yaml 管理的前缀 src_*）。
+    返回变更数量。
     """
     from omka.app.profiles.profile_loader import load_sources_config
+    from omka.app.core.logging import logger
 
     config = load_sources_config()
     github_config = config.get("github", {})
 
-    loaded = 0
+    changed = 0
+
+    expected_ids: set[str] = set()
+    for repo in github_config.get("repos", []):
+        expected_ids.add(f"src_github_{repo.replace('/', '_')}")
+    for search in github_config.get("searches", []):
+        expected_ids.add(f"src_search_{search['name'].lower().replace(' ', '_')}")
+
     with get_session() as session:
+        db_configs = session.exec(select(SourceConfig)).all()
+        db_ids = {c.id for c in db_configs}
+
+        yaml_managed_in_db = {cid for cid in db_ids if cid.startswith("src_")}
+        stale_ids = yaml_managed_in_db - expected_ids
+        for stale_id in stale_ids:
+            source = session.get(SourceConfig, stale_id)
+            if source and source.enabled:
+                source.enabled = False
+                source.updated_at = datetime.utcnow()
+                session.add(source)
+                logger.info("禁用已不再 YAML 中的源 | id=%s", stale_id)
+                changed += 1
+        if stale_ids:
+            session.commit()
+
+        new_ids = expected_ids - db_ids
         for repo in github_config.get("repos", []):
             source_id = f"src_github_{repo.replace('/', '_')}"
-            existing = session.get(SourceConfig, source_id)
-            if not existing:
+            if source_id in new_ids:
                 source = SourceConfig(
                     id=source_id,
                     source_type="github",
@@ -61,12 +88,11 @@ def load_profile_sources() -> int:
                     weight=1.0,
                 )
                 session.merge(source)
-                loaded += 1
+                changed += 1
 
         for search in github_config.get("searches", []):
             source_id = f"src_search_{search['name'].lower().replace(' ', '_')}"
-            existing = session.get(SourceConfig, source_id)
-            if not existing:
+            if source_id in new_ids:
                 source = SourceConfig(
                     id=source_id,
                     source_type="github",
@@ -78,8 +104,8 @@ def load_profile_sources() -> int:
                     weight=1.0,
                 )
                 session.merge(source)
-                loaded += 1
+                changed += 1
 
         session.commit()
 
-    return loaded
+    return changed

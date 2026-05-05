@@ -6,6 +6,7 @@ export function useCandidates() {
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true)
@@ -13,6 +14,7 @@ export function useCandidates() {
     try {
       const data = await candidatesApi.getPending()
       setCandidates(data)
+      setSelectedIds(new Set())
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载失败")
     } finally {
@@ -23,6 +25,26 @@ export function useCandidates() {
   useEffect(() => {
     fetchCandidates()
   }, [fetchCandidates])
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(candidates.map((c) => c.id)))
+  }, [candidates])
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set())
+  }, [])
 
   const handleAction = useCallback(async (id: string, action: "save" | "ignore" | "dislike" | "readLater") => {
     setActionLoading(id)
@@ -50,6 +72,25 @@ export function useCandidates() {
     }
   }, [fetchCandidates])
 
+  const batchAction = useCallback(async (action: "confirm" | "ignore") => {
+    if (selectedIds.size === 0) return
+    setError(null)
+    try {
+      const ids = Array.from(selectedIds)
+      if (action === "confirm") {
+        await candidatesApi.batchConfirm(ids)
+      } else {
+        await candidatesApi.batchIgnore(ids)
+      }
+      await fetchCandidates()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "批量操作失败")
+    }
+  }, [selectedIds, fetchCandidates])
+
+  const selectedCount = selectedIds.size
+  const allSelected = candidates.length > 0 && selectedCount === candidates.length
+
   return {
     candidates,
     loading,
@@ -57,5 +98,12 @@ export function useCandidates() {
     error,
     fetchCandidates,
     handleAction,
+    selectedIds,
+    selectedCount,
+    allSelected,
+    toggleSelection,
+    selectAll,
+    clearSelection,
+    batchAction,
   }
 }

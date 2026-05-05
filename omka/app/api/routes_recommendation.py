@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlmodel import col, select
 
-from omka.app.core.logging import logger
 from omka.app.services.recommendation_service import RecommendationService
 from omka.app.storage.db import RecommendationDecision, RecommendationRun, get_session
 

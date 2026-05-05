@@ -30,8 +30,6 @@ export const assetsApi = {
     formData.append("file", file)
     return api.postFormData<{ id: string; status: string; asset_type: string }>("/assets/upload", formData)
   },
-  get: (asset_id: string) =>
-    api.get<KnowledgeAsset>(`/assets/${asset_id}`),
   delete: (asset_id: string) =>
     api.delete<{ id: string; message: string }>(`/assets/${asset_id}`),
 }

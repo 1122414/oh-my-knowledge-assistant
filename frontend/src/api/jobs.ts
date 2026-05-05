@@ -38,5 +38,4 @@ export const jobsApi = {
   getRuns: () => api.get<JobRun[]>("/jobs/runs"),
   runNow: () => api.post<unknown>("/jobs/run-now"),
   getSchedule: () => api.get<ScheduleInfo>("/jobs/schedule"),
-  updateSchedule: (schedule: string) => api.put<ScheduleInfo>("/jobs/schedule", { schedule }),
 }

@@ -1,12 +1,12 @@
 # OMKA Knowledge Base
 
-**Updated:** 2026-04-29 14:47 | **Commit:** c36c4b8 | **Branch:** main
+**Updated:** 2026-05-03 14:09 | **Commit:** 3c6ad38 | **Branch:** main
 
 ## Overview
 
-OMKA (Oh My Knowledge Assistant) is a personal knowledge assistant MVP. It fetches GitHub content daily, normalizes it, ranks by user interests, generates AI summaries, and produces a Markdown digest.
+OMKA (Oh My Knowledge Assistant) is a personal knowledge assistant. It fetches GitHub content daily, normalizes it, ranks by user interests, generates AI summaries, produces a Markdown digest, and pushes to Feishu. v2 adds: Feishu bot agent (natural-language interaction), memory system, push notification policies, knowledge assets, and recommendation engine.
 
-**Backend:** FastAPI + APScheduler + SQLModel (SQLite) + httpx + Pydantic
+**Backend:** FastAPI + APScheduler + SQLModel (SQLite) + httpx + Pydantic + Lark SDK (Feishu)
 **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS + shadcn/ui
 
 ## Quick Start
@@ -31,20 +31,23 @@ npm run dev
 ├── omka/app/           # Backend (FastAPI)
 │   ├── main.py         # Entry point
 │   ├── core/           # Config, logging, scheduler
-│   ├── api/            # FastAPI routers
+│   ├── api/            # FastAPI routers (12 modules)
 │   ├── connectors/     # Source connectors (GitHub, future: RSS, Web)
 │   ├── pipeline/       # Fetch → Clean → Dedup → Rank → Summarize → Digest
-│   ├── storage/        # DB models, repositories, markdown store
-│   ├── services/       # Background job orchestration
+│   ├── storage/        # DB models (21 tables), repositories, markdown store
+│   ├── services/       # Business logic (daily_job, memory, recommendation, action, NLU)
+│   ├── agents/         # LLM agent system (context_builder, simple_knowledge_agent)
+│   ├── integrations/   # External platform integrations
+│   │   └── feishu/     # Feishu bot agent + webhook (11 files)
 │   ├── profiles/       # User interest/project YAML loading
-│   └── notifications/  # Push notifications (Feishu webhook)
+│   └── notifications/  # Push notifications (Feishu webhook channel)
 ├── frontend/           # Frontend (React + TypeScript)
-│   ├── src/api/        # API client + typed endpoints
-│   ├── src/hooks/      # Custom data hooks
-│   ├── src/pages/      # Route-level pages
+│   ├── src/api/        # API client + typed endpoints (9 modules)
+│   ├── src/hooks/      # Custom data hooks (8 hooks)
+│   ├── src/pages/      # Route-level pages (11 pages)
 │   └── src/components/ # UI components (shadcn/ui)
 ├── data/               # User data (profiles, raw, digests, knowledge, db)
-├── tests/              # Test scripts
+├── tests/              # Integration test scripts
 └── requirements.txt    # Backend dependencies
 ```
 
@@ -62,6 +65,13 @@ npm run dev
 | Add frontend page | `frontend/src/pages/` | Add route in `App.tsx` |
 | Add frontend hook | `frontend/src/hooks/` | Follow `use-sources.ts` pattern |
 | Add UI component | `frontend/src/components/` | Use shadcn/ui patterns |
+| Add Feishu feature | `omka/app/integrations/feishu/` | Command router, event handler, auth |
+| Change agent behavior | `omka/app/agents/` | Prompts, context builder, base agent |
+| Add notification channel | `omka/app/notifications/channels/` | Implement channel interface |
+| Change push policy | `omka/app/storage/db.py` | `PushPolicy` model + routes_push.py |
+| Work with memory system | `omka/app/services/memory_service.py` | Memory CRUD + events |
+| Change recommendation logic | `omka/app/services/recommendation_service.py` | Scoring + explanation |
+| Manage knowledge assets | `omka/app/api/routes_asset.py` | Asset upload/download |
 
 ## Key Conventions
 
@@ -86,12 +96,12 @@ npm run dev
 | File | Issue | Fix |
 |------|-------|-----|
 | `routes_digest.py:10-13` | Direct pipeline call `rank_candidates()` | Move to service layer |
-| `routes_sources.py:61` | Uses `dict[str, Any]` instead of Pydantic model | Create `SourceUpdateRequest` model |
-| `routes_feedback.py:115` | Uses `dict[str, Any]` instead of Pydantic model | Create `FeedbackRequest` model |
-| `routes_knowledge.py:49,71` | Uses `dict[str, Any]` instead of Pydantic model | Create Pydantic models |
-| `routes_settings.py:31,50` | Uses `dict[str, Any]` instead of Pydantic model | Create Pydantic models |
-| `digest_builder.py:7` | Imports from `summarizer` (pipeline-to-pipeline) | Use DB handoff or dependency injection |
-| `cleaner.py:15` | Loads all RawItems then filters | Add `.where()` at SQL level |
+| `routes_sources.py:39` | `response_model=list[dict[str, Any]]` | Create Pydantic response model |
+| `routes_jobs.py` | Multiple endpoints return raw `dict` | Create `JobStatusResponse` etc. |
+| `routes_feishu.py` | Four endpoints return raw `dict` | Create Feishu response models |
+| `routes_knowledge.py:20` | Bare `dict` type (`dict \| None`) | Use `dict[str, Any]` |
+| `digest_builder.py:12` | Lazy import from `summarizer` (pipeline-to-pipeline) | Use DB handoff or dependency injection |
+| `core/config.py:227` | `@lru_cache` without `maxsize` | Add `maxsize=1` |
 
 ## Extension Points
 
@@ -135,7 +145,9 @@ tail -f logs/omka.log                      # Watch logs
 
 ## Known Issues
 
-- **Missing `__init__.py`:** `omka/app/notifications/` and `omka/app/notifications/channels/` lack `__init__.py`
 - **Empty frontend dirs:** `components/cards/`, `components/common/`, `components/ui/`, `types/` are empty
 - **API client bypasses Vite proxy:** `frontend/src/api/client.ts` hardcodes `http://127.0.0.1:8000`
 - **No `pyproject.toml`:** Python project uses only `requirements.txt`
+- **Large files:** `omka/app/integrations/feishu/command_router.py` (918 lines), `frontend/src/pages/SettingsPage.tsx` (731 lines) — consider splitting
+- **No CI/CD:** No `.github/workflows/` or equivalent
+- **No unit tests:** Only integration smoke tests exist

@@ -217,6 +217,22 @@ class CandidateActionService:
         return True
 
     @staticmethod
+    def ignore_all_candidates() -> int:
+        count = 0
+        with get_session() as session:
+            candidates = session.exec(
+                select(CandidateItem).where(CandidateItem.status == "pending")
+            ).all()
+            for candidate in candidates:
+                candidate.status = "ignored"
+                candidate.updated_at = datetime.utcnow()
+                session.add(candidate)
+                count += 1
+            session.commit()
+        logger.info("批量忽略候选 | count=%d", count)
+        return count
+
+    @staticmethod
     def read_later_candidate(candidate_id: str) -> bool:
         with get_session() as session:
             candidate = session.get(CandidateItem, candidate_id)

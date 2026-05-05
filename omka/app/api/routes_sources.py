@@ -7,6 +7,9 @@ from sqlmodel import select
 
 from omka.app.connectors.registry import ConnectorRegistry
 from omka.app.core.logging import logger
+from omka.app.pipeline.cleaner import clean_and_normalize
+from omka.app.pipeline.deduper import dedup_and_create_candidates
+from omka.app.pipeline.ranker import rank_candidates
 from omka.app.storage.db import SourceConfig, get_session
 from omka.app.storage.repositories import save_raw_items
 
@@ -105,6 +108,10 @@ async def run_source(source_id: str):
     connector = ConnectorRegistry.get(config.source_type)
     raw_items = await connector.fetch(config.model_dump())
     save_raw_items(raw_items, config)
+
+    clean_and_normalize()
+    dedup_and_create_candidates()
+    rank_candidates()
 
     with get_session() as session:
         config.last_fetched_at = datetime.utcnow()

@@ -2,27 +2,33 @@
 
 ## Overview
 
-Application layer for OMKA. Follows a layered architecture: API → Services → Pipeline → Connectors/Storage, with `core/` providing cross-cutting concerns.
+Application layer for OMKA. Layered architecture: API → Services → Pipeline → Connectors/Storage, with `core/` (cross-cutting), `agents/` (LLM reasoning), `integrations/` (external platforms via Feishu bot agent).
 
 ## Module Map
 
 | Module | Role | Key Files |
 |---|---|---|
-| `api/` | FastAPI routers | `routes_sources.py`, `routes_feedback.py`, `routes_digest.py`, `routes_knowledge.py` |
+| `api/` | FastAPI routers (14 endpoints) | `routes_sources.py`, `routes_digest.py`, `routes_agent.py`, `routes_asset.py`, `routes_feishu.py`, `routes_memory.py`, `routes_push.py`, `routes_recommendation.py` |
 | `connectors/` | External source integrations | `base.py` (contract), `registry.py` (plugin registry), `github/` (impl) |
 | `pipeline/` | Content processing stages | `fetcher.py`, `cleaner.py`, `deduper.py`, `ranker.py`, `summarizer.py`, `digest_builder.py` |
-| `storage/` | Persistence | `db.py` (models), `repositories.py` (helpers), `markdown_store.py` (file output) |
-| `services/` | Job orchestration | `daily_job.py` (sequences pipeline phases) |
+| `storage/` | Persistence | `db.py` (21 models), `repositories.py` (helpers), `markdown_store.py` (file output) |
+| `services/` | Business logic | `daily_job.py` (pipeline orchestration), `memory_service.py` (memory CRUD), `recommendation_service.py`, `action_service.py`, `nlu_service.py` |
+| `agents/` | LLM agent system | `base.py` (BaseAgent), `context_builder.py`, `prompts.py`, `simple_knowledge_agent.py` |
+| `integrations/feishu/` | Feishu bot agent + webhook | 11 files — see `integrations/feishu/AGENTS.md` |
 | `profiles/` | User preference loading | `profile_loader.py` (YAML), `interest_model.py` (Pydantic models) |
-| `notifications/` | Push notifications | `service.py`, `channels/feishu_webhook.py` |
-| `core/` | Infrastructure | `config.py`, `logging.py`, `scheduler.py` |
+| `notifications/` | Push notification channels | `service.py`, `channels/feishu_webhook.py` |
+| `core/` | Infrastructure | `config.py` (settings), `logging.py`, `scheduler.py`, `settings_service.py` (runtime config CRUD) |
 
 ## Data Flow
 
 ```
-SourceConfig → fetcher → RawItem → cleaner → NormalizedItem → deduper → CandidateItem → ranker → digest_builder → Markdown
+SourceConfig → fetcher → RawItem → cleaner → NormalizedItem → deduper → CandidateItem → ranker → digest_builder → Markdown → Feishu push
                                                   ↑                                                                             ↓
                                            profiles (interests/projects)                                              KnowledgeItem (on confirm)
+                                                                                                                              ↓
+                                                                                                                     MemoryItem (insight extraction)
+                                                                                                                              ↓
+                                                                                                                     RecommendationEngine
 ```
 
 ## Conventions
@@ -75,10 +81,15 @@ class MyModel(BaseSchema, table=True):
 |---|---|
 | Add a pipeline stage | `pipeline/` + `services/daily_job.py` |
 | Change ranking algorithm | `pipeline/ranker.py` |
-| Change LLM prompt | `pipeline/summarizer.py` |
+| Change LLM prompt | `pipeline/summarizer.py` or `agents/prompts.py` |
 | Change digest template | `pipeline/digest_builder.py` |
 | Add API endpoint | `api/routes_*.py` |
 | Add DB model | `storage/db.py` |
+| Add agent capability | `agents/` + register in `base.py` |
+| Add Feishu command | `integrations/feishu/command_router.py` |
+| Change recommendation logic | `services/recommendation_service.py` |
+| Manage memories | `services/memory_service.py` |
+| Add push policy | `storage/db.py` (`PushPolicy`) + `api/routes_push.py` |
 
 ## Anti-Patterns
 
@@ -91,13 +102,14 @@ class MyModel(BaseSchema, table=True):
 
 | File | Issue | Fix |
 |------|-------|-----|
-| `routes_digest.py:10-13` | Direct pipeline call `rank_candidates()` | Move to service layer |
-| `routes_sources.py:61` | Uses `dict[str, Any]` instead of Pydantic model | Create `SourceUpdateRequest` model |
-| `routes_feedback.py:115` | Uses `dict[str, Any]` instead of Pydantic model | Create `FeedbackRequest` model |
-| `routes_knowledge.py:49,71` | Uses `dict[str, Any]` instead of Pydantic model | Create Pydantic models |
-| `routes_settings.py:31,50` | Uses `dict[str, Any]` instead of Pydantic model | Create Pydantic models |
-| `digest_builder.py:7` | Imports from `summarizer` (pipeline-to-pipeline) | Use DB handoff or dependency injection |
-| `cleaner.py:15` | Loads all RawItems then filters | Add `.where()` at SQL level |
+| `digest_builder.py:12` | Lazy import from `summarizer` (pipeline-to-pipeline) | Use DB handoff or dependency injection |
+| `routes_sources.py:39` | `response_model=list[dict[str, Any]]` | Create proper Pydantic response model |
+| `routes_jobs.py:*` | Multiple endpoints return raw `dict` without response model | Create `JobStatusResponse`, `DashboardResponse` etc. |
+| `routes_feishu.py:*` | Four endpoints return raw `dict` | Create Feishu response models |
+| `routes_knowledge.py:20` | Bare `dict` type: `item_metadata: dict \| None` | Use `dict[str, Any]` |
+| `routes_memory.py:24,33` | Bare `dict` type | Use `dict[str, Any]` or Pydantic model |
+| `core/config.py:227` | `@lru_cache` without `maxsize` | Add `maxsize=1` |
+| 14 files, 29 instances | `datetime.utcnow()` deprecated in 3.12 | Use `datetime.now(timezone.utc)` |
 
 ## Notes
 
@@ -106,3 +118,9 @@ class MyModel(BaseSchema, table=True):
 - Pipeline stages are idempotent (safe to re-run): `session.merge()` is used for upserts.
 - `daily_job.py` sequences phases with individual try/catch, so one failure doesn't kill the whole job.
 - Profile files are YAML/Markdown in `data/profiles/`. `load_profile_sources()` runs at startup.
+- `settings_service.py` manages runtime config via `AppSetting` table, overrides `.env` values at runtime.
+- Agent runs are logged to `AgentRun` + `ConversationMessage` tables for Feishu bot conversations.
+- Memory system (`MemoryItem` + `MemoryEvent`) extracts long-term insights from confirmed knowledge.
+- Recommendation engine generates ranked suggestions with explanations and action hints.
+- Feishu bot agent uses Lark SDK with WebSocket long-connect for direct message interaction.
+- `action_service.py` orchestrates complex multi-step user actions (confirm, search, query).

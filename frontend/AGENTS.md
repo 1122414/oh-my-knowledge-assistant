@@ -1,26 +1,26 @@
 # OMKA Frontend
 
-**Generated:** 2026-04-29 14:47 | **Commit:** c36c4b8 | **Branch:** main
+**Generated:** 2026-05-03 14:09 | **Commit:** 3c6ad38 | **Branch:** main
 
 ## Overview
 
-React 19 SPA with TypeScript, Vite 8, Tailwind CSS, and shadcn/ui patterns. Communicates with FastAPI backend via REST API.
+React 19 SPA with TypeScript, Vite 8, Tailwind CSS, and shadcn/ui patterns. Communicates with FastAPI backend via REST API. v2 pages: Dashboard, Sources, Digest, Knowledge, Read-Later, Settings, Job-Logs, Push, Assets, Memory, Onboarding.
 
 ## Structure
 
 ```
 frontend/src/
-├── api/            # API client + typed endpoint functions
+├── api/            # API client + typed endpoint functions (9 modules)
 ├── components/
 │   ├── layout/     # AppShell, AppSidebar, PageHeader
-│   ├── cards/      # Domain-specific card components
-│   ├── common/     # Shared components
-│   └── ui/         # shadcn/ui primitives
-├── hooks/          # Custom hooks (use-sources, use-candidates, etc.)
+│   ├── cards/      # (empty scaffold)
+│   ├── common/     # (empty scaffold)
+│   └── ui/         # (empty scaffold)
+├── hooks/          # Custom hooks: use-sources, use-candidates, use-push, use-assets, use-memory (8 total)
 ├── lib/            # Utilities (cn.ts for className merging)
-├── pages/          # Route-level page components
+├── pages/          # Route-level pages (11 pages)
 ├── styles/         # globals.css (Tailwind directives)
-└── types/          # TypeScript type definitions
+└── types/          # (empty scaffold)
 ```
 
 ## Where to Look
@@ -33,6 +33,9 @@ frontend/src/
 | Add UI component | `components/ui/` | Use shadcn/ui patterns |
 | Add layout change | `components/layout/` | Modify AppShell/AppSidebar |
 | Change API base URL | `api/client.ts` | Also update `vite.config.ts` proxy |
+| Manage push notifications | `api/push.ts` + `hooks/use-push.ts` | `PushPage.tsx` renders |
+| Manage knowledge assets | `api/assets.ts` + `hooks/use-assets.ts` | `AssetsPage.tsx` renders |
+| Work with memory system | `api/memory.ts` + `hooks/use-memory.ts` | `MemoryPage.tsx` renders |
 
 ## Conventions
 
@@ -141,3 +144,4 @@ npm run preview      # Preview production build
 - **API client bypasses proxy:** `api/client.ts` hardcodes `http://127.0.0.1:8000` instead of using Vite proxy
 - **No test framework:** No vitest, jest, or testing-library configured
 - **No `test` script:** `package.json` has no test command
+- **Large pages:** `SettingsPage.tsx` (731 lines), `MemoryPage.tsx` (359 lines), `PushPage.tsx` (308 lines) — consider splitting into sub-components

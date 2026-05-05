@@ -41,7 +41,7 @@ export interface CreatePushPolicyRequest {
   max_per_day?: number
 }
 
-export interface UpdatePushPolicyRequest {
+interface UpdatePushPolicyRequest {
   enabled?: boolean
   threshold?: number
   max_per_day?: number
