@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Any
 
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
+from omka.app.core.logging import get_logger
+
+logger = get_logger("feishu")
 from omka.app.integrations.feishu.config import FeishuConfig
 from omka.app.integrations.feishu.models import (
     FeishuCommandResult,

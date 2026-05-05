@@ -6,8 +6,10 @@ from omka.app.agents.base import AgentContext
 from omka.app.agents.context_builder import ContextBuilder
 from omka.app.agents.simple_knowledge_agent import SimpleKnowledgeAgent
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
+from omka.app.core.logging import TraceContext, get_logger, trace
 from omka.app.storage.db import AgentRun, ConversationMessage, get_session
+
+logger = get_logger("feishu")
 
 
 class FeishuConversationGateway(ABC):
@@ -48,6 +50,7 @@ class SimpleKnowledgeAgentGateway(FeishuConversationGateway):
             max_context_chars=settings.omka_agent_max_context_chars,
         )
 
+    @trace("feishu")
     async def handle_user_message(
         self,
         user_id: str,

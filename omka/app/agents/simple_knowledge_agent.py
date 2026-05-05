@@ -1,8 +1,10 @@
 from omka.app.agents.base import AgentContext, AgentResponse, BaseAgent
 from omka.app.agents.prompts import SYSTEM_PROMPT, build_user_prompt
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
+from omka.app.core.logging import get_logger, trace
 from omka.app.pipeline.summarizer import LLMClient
+
+logger = get_logger("agent")
 
 
 class SimpleKnowledgeAgent(BaseAgent):
@@ -11,6 +13,7 @@ class SimpleKnowledgeAgent(BaseAgent):
     def __init__(self):
         self._llm = LLMClient()
 
+    @trace("agent")
     async def answer(self, context: AgentContext) -> AgentResponse:
         """根据上下文生成回答
 

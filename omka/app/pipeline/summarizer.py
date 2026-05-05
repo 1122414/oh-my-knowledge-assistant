@@ -4,7 +4,9 @@ from typing import Any
 import httpx
 
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
+from omka.app.core.logging import get_logger, trace
+
+logger = get_logger("pipeline")
 
 
 class LLMClient:
@@ -17,11 +19,21 @@ class LLMClient:
         self.max_tokens = settings.llm_max_tokens
         self.timeout = settings.llm_timeout
 
+    @trace("agent")
     async def summarize(self, title: str, content: str, item_type: str) -> dict[str, str]:
         prompt = self._build_summary_prompt(title, content, item_type)
+        logger.info(
+            "LLM 摘要请求 | title=%s | type=%s | prompt_len=%d | model=%s",
+            title[:80], item_type, len(prompt), self.model,
+        )
         try:
             response = await self._chat_completion(prompt)
-            return self._parse_summary_response(response)
+            result = self._parse_summary_response(response)
+            logger.info(
+                "LLM 摘要完成 | title=%s | summary=%s",
+                title[:50], result.get("summary", "")[:60],
+            )
+            return result
         except Exception as e:
             logger.error("LLM 摘要失败 | title=%s | error=%s", title, e)
             return {
@@ -30,28 +42,39 @@ class LLMClient:
                 "suggested_action": "查看详情",
             }
 
+    @trace("agent", log_args=True)
     async def chat(
         self,
         messages: list[dict[str, str]],
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
-        """多轮对话接口
-
-        Args:
-            messages: 消息列表，格式 [{"role": "user", "content": "..."}]
-            temperature: 温度参数
-            max_tokens: 最大 token 数
-
-        Returns:
-            助手回复文本
-        """
         temp = temperature if temperature is not None else self.temperature
         tokens = max_tokens if max_tokens is not None else self.max_tokens
 
-        if self.provider == "ollama":
-            return await self._ollama_chat_messages(messages, temp, tokens)
+        total_chars = sum(len(m.get("content", "")) for m in messages)
+        logger.info(
+            "LLM Chat 请求 | provider=%s | model=%s | messages=%d | total_chars=%d | max_tokens=%d",
+            self.provider, self.model, len(messages), total_chars, tokens,
+        )
 
+        if self.provider == "ollama":
+            result = await self._ollama_chat_messages(messages, temp, tokens)
+        else:
+            result = await self._openai_chat_messages(messages, temp, tokens)
+
+        logger.info(
+            "LLM Chat 完成 | provider=%s | model=%s | response_len=%d",
+            self.provider, self.model, len(result),
+        )
+        return result
+
+    async def _openai_chat_messages(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
         headers = {
             "Content-Type": "application/json",
         }
@@ -61,8 +84,8 @@ class LLMClient:
         payload = {
             "model": self.model,
             "messages": messages,
-            "temperature": temp,
-            "max_tokens": tokens,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
         }
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:

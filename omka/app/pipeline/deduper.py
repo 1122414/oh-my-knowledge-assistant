@@ -2,10 +2,11 @@ from typing import Any
 
 from sqlmodel import select
 
-from omka.app.core.logging import logger
-from omka.app.storage.db import CandidateItem, NormalizedItem, get_session
+from omka.app.core.logging import get_logger, trace
 
+logger = get_logger("pipeline")
 
+@trace("pipeline")
 def dedup_and_create_candidates() -> dict[str, Any]:
     """去重并创建候选条目"""
     with get_session() as session:

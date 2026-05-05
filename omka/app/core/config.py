@@ -215,10 +215,12 @@ class Settings(BaseSettings):
     # ===========================================
     # 日志配置
     # ===========================================
-    log_level: str = Field(default="INFO", description="日志级别")
+    log_level: str = Field(default="INFO", description="日志级别: DEBUG, INFO, WARNING, ERROR")
     log_dir: Path = Field(default=LOGS_DIR, description="日志目录")
     log_file_max_bytes: int = Field(default=10 * 1024 * 1024, description="单个日志文件最大字节数")
     log_file_backup_count: int = Field(default=5, description="日志文件备份数量")
+    log_trace_enabled: bool = Field(default=True, description="启用函数调用追踪 @trace")
+    log_api_enabled: bool = Field(default=True, description="启用 API 请求日志")
 
     def ensure_dirs(self) -> None:
         """确保所有数据目录存在"""

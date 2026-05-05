@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
+from omka.app.core.logging import TraceContext, get_logger, logger
 from omka.app.core.scheduler import schedule_daily_job, shutdown_scheduler, start_scheduler
 from omka.app.core.settings_service import init_default_settings
 from omka.app.storage.db import init_db
@@ -92,6 +92,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# API 请求/响应日志中间件
+from omka.app.api.middleware import APILoggingMiddleware
+app.add_middleware(APILoggingMiddleware)
 
 
 @app.get("/health", tags=["系统"])

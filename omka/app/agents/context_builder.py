@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from omka.app.agents.base import AgentContext
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
+from omka.app.core.logging import get_logger, trace
 from omka.app.storage.db import (
     CandidateItem,
     ConversationMessage,
@@ -10,6 +8,8 @@ from omka.app.storage.db import (
     get_session,
 )
 from sqlmodel import col, select
+
+logger = get_logger("agent")
 
 
 class ContextBuilder:
@@ -31,6 +31,7 @@ class ContextBuilder:
         self.max_memory_items = max_memory_items
         self.max_context_chars = max_context_chars
 
+    @trace("agent")
     async def build(
         self,
         user_message: str,

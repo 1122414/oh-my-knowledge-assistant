@@ -8,7 +8,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
+from omka.app.core.logging import get_logger
+
+logger = get_logger("system")
 
 # 全局调度器实例
 _scheduler: AsyncIOScheduler | None = None

@@ -4,11 +4,11 @@ from typing import Any
 from sqlmodel import select
 
 from omka.app.core.config import settings
-from omka.app.core.logging import logger
-from omka.app.profiles.interest_model import UserProfile
-from omka.app.storage.db import CandidateItem, NormalizedItem, get_session
+from omka.app.core.logging import get_logger, trace
 
+logger = get_logger("pipeline")
 
+@trace("pipeline")
 def rank_candidates() -> dict[str, Any]:
     profile = UserProfile.load()
     with get_session() as session:

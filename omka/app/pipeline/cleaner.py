@@ -3,10 +3,11 @@ from typing import Any
 from sqlmodel import select
 
 from omka.app.connectors.registry import ConnectorRegistry
-from omka.app.core.logging import logger
-from omka.app.storage.db import NormalizedItem, RawItem, get_session
+from omka.app.core.logging import get_logger, trace
 
+logger = get_logger("pipeline")
 
+@trace("pipeline")
 def clean_and_normalize() -> dict[str, Any]:
     with get_session() as session:
         existing_ids = {

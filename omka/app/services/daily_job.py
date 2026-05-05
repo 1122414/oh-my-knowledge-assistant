@@ -2,7 +2,9 @@ import asyncio
 from datetime import datetime
 from typing import Any, Callable
 
-from omka.app.core.logging import logger
+from omka.app.core.logging import TraceContext, get_logger, trace
+
+logger = get_logger("daily_job")
 from omka.app.pipeline.cleaner import clean_and_normalize
 from omka.app.pipeline.deduper import dedup_and_create_candidates
 from omka.app.pipeline.digest_builder import generate_digest
@@ -25,11 +27,16 @@ async def _run_phase(name: str, fn: Callable, result: dict, metric_key: str) -> 
         result["phases"][name] = {"status": "failed", "error": str(e)}
 
 
+@trace("daily_job")
 async def run_daily_job() -> dict[str, Any]:
     logger.info("=" * 50)
     logger.info("开始执行每日任务 | %s", datetime.now().isoformat())
     logger.info("=" * 50)
+    
+    with TraceContext("daily_job", {"job_type": "github_daily"}) as ctx:
+        return await _run_daily_job_inner()
 
+async def _run_daily_job_inner() -> dict[str, Any]:
     result: dict[str, Any] = {"phases": {}}
     run_id: int | None = None
 

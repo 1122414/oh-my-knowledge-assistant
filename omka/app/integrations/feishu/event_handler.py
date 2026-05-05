@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any
 
@@ -17,7 +16,9 @@ from omka.app.integrations.feishu.models import FeishuCommandType, FeishuMessage
 from omka.app.storage.db import get_session
 from sqlmodel import select
 
-logger = logging.getLogger("OMKA.feishu.event_handler")
+from omka.app.core.logging import get_logger
+
+logger = get_logger("feishu")
 
 MAX_DEDUP_SIZE = 10_000
 
