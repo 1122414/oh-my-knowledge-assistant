@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8000"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api"
 
 async function request<T>(
   path: string,
@@ -20,7 +20,7 @@ async function request<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: "请求失败" }))
-    throw new Error(error.message || `HTTP ${response.status}`)
+    throw new Error(error.detail || error.message || `HTTP ${response.status}`)
   }
 
   return response.json()

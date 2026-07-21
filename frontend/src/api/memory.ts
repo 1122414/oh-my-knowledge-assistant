@@ -35,6 +35,7 @@ export interface MemoryCreateRequest {
 export interface MemoryUpdateRequest {
   content?: string
   summary?: string
+  confidence?: number
   importance?: number
   status?: string
   tags?: string[]
@@ -50,6 +51,40 @@ export interface MemoryProfileSummary {
   conversation_memories: number
   system_memories: number
   candidate_memories: number
+}
+
+export interface ProfileEvidence {
+  id: string
+  source_type: string
+  source_ref: string | null
+  confidence: number
+  status: string
+  user_confirmed: boolean
+  updated_at: string | null
+}
+
+export interface ProfileFacet {
+  key: string
+  category: "interest" | "project" | "preference" | "working_style" | "avoidance" | "goal"
+  label: string
+  value: string
+  confidence: number
+  importance: number
+  state: "verified" | "inferred" | "review"
+  memory_id: string | null
+  evidence: ProfileEvidence[]
+}
+
+export interface UserProfileSnapshot {
+  owner_external_id: string
+  summary: string
+  facets: ProfileFacet[]
+  confidence: number
+  coverage_score: number
+  confirmation_rate: number
+  candidate_count: number
+  conflict_count: number
+  updated_at: string
 }
 
 export const memoryApi = {
@@ -76,6 +111,12 @@ export const memoryApi = {
     api.post<{ id: string; status: string; message: string }>(`/memories/${memory_id}/reject`),
   getProfileSummary: () =>
     api.get<MemoryProfileSummary>("/memories/profile/summary"),
-  importProfile: () =>
-    api.post<{ message: string; imported: unknown }>("/memories/import-profile"),
+  getProfileSnapshot: (ownerExternalId = "web-console") =>
+    api.get<UserProfileSnapshot>(
+      `/memories/profile/snapshot?owner_external_id=${encodeURIComponent(ownerExternalId)}`
+    ),
+  importProfile: (ownerExternalId = "web-console") =>
+    api.post<{ message: string; imported: unknown }>(
+      `/memories/import-profile?owner_external_id=${encodeURIComponent(ownerExternalId)}`
+    ),
 }

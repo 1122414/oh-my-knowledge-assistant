@@ -11,85 +11,69 @@ from omka.app.core.settings_service import get_setting
 from omka.app.notifications.base import NotificationChannel, SendResult
 
 
-def build_feishu_signature(secret: str) -> tuple[str, str]:
-    timestamp = str(int(time.time()))
-    string_to_sign = f"{timestamp}\n{secret}"
-    sign = base64.b64encode(
-        hmac.new(
-            secret.encode("utf-8"),
-            string_to_sign.encode("utf-8"),
-            digestmod=hashlib.sha256,
-        ).digest()
-    ).decode("utf-8")
-    return timestamp, sign
-
-
 class FeishuWebhookChannel(NotificationChannel):
-    channel_type = "feishu_webhook"
+    """飞书群机器人 Webhook 推送渠道（已废弃）"""
+
+    def __init__(self, webhook_url: str | None = None, secret: str | None = None):
+        self._webhook_url = webhook_url
+        self._secret = secret
+
+    @property
+    def is_available(self) -> bool:
+        return bool(self._webhook_url)
 
     async def send_digest(self, digest: dict[str, Any]) -> SendResult:
-        webhook_url = get_setting("feishu_webhook_url", "")
-        secret = get_setting("feishu_webhook_secret", "")
+        if not self._webhook_url:
+            return SendResult(success=False, error="Webhook URL not configured")
 
-        if not webhook_url:
-            return SendResult(success=False, message="飞书 Webhook URL 未配置")
+        content = self._build_content(digest)
+        if not content:
+            return SendResult(success=False, error="Empty content")
 
-        if not webhook_url.startswith("http"):
-            return SendResult(success=False, message="飞书 Webhook URL 格式错误")
+        timestamp = str(int(time.time()))
+        sign = self._generate_sign(timestamp)
 
-        # 构建消息内容
-        text = self._build_message(digest)
-
-        payload = {
+        payload: dict[str, Any] = {
             "msg_type": "text",
-            "content": {"text": text},
+            "content": {"text": content},
         }
-
-        # 添加签名
-        if secret:
-            timestamp, sign = build_feishu_signature(secret)
+        if sign:
             payload["timestamp"] = timestamp
             payload["sign"] = sign
 
-        max_retries = get_setting("feishu_max_retries", 3)
-        timeout = get_setting("feishu_request_timeout_seconds", 10)
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    self._webhook_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+                if resp.status_code == 200:
+                    body = resp.json()
+                    if body.get("code") == 0 or body.get("StatusCode") == 0:
+                        logger.info("飞书 Webhook 推送成功")
+                        return SendResult(success=True)
+                    msg = body.get("msg", str(body))
+                    logger.error("飞书 Webhook 推送失败 | resp=%s", body)
+                    return SendResult(success=False, error=msg)
+                logger.error("飞书 Webhook 推送失败 | status=%d | body=%s", resp.status_code, resp.text[:200])
+                return SendResult(success=False, error=f"HTTP {resp.status_code}")
+        except Exception as e:
+            logger.error("飞书 Webhook 推送异常 | error=%s", e)
+            return SendResult(success=False, error=str(e))
 
-        last_error = ""
-        for attempt in range(max_retries):
-            try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        webhook_url,
-                        json=payload,
-                        timeout=timeout,
-                    )
-                    if response.status_code == 200:
-                        resp_data = response.json()
-                        if resp_data.get("code") == 0:
-                            logger.info("飞书推送成功")
-                            return SendResult(
-                                success=True,
-                                message="飞书推送成功",
-                                response=resp_data,
-                            )
-                        else:
-                            msg = resp_data.get("msg", "未知错误")
-                            logger.warning("飞书返回错误 | msg=%s", msg)
-                            return SendResult(
-                                success=False,
-                                message=f"飞书返回错误: {msg}",
-                                response=resp_data,
-                            )
-                    else:
-                        last_error = f"HTTP {response.status_code}"
-                        logger.warning("飞书推送失败 | attempt=%d | status=%d", attempt + 1, response.status_code)
-            except Exception as e:
-                last_error = str(e)
-                logger.warning("飞书推送异常 | attempt=%d | error=%s", attempt + 1, e)
+    def _generate_sign(self, timestamp: str) -> str:
+        if not self._secret:
+            return ""
+        string_to_sign = f"{timestamp}\n{self._secret}"
+        hmac_code = hmac.new(
+            self._secret.encode("utf-8"),
+            string_to_sign.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        )
+        return base64.b64encode(hmac_code.digest()).decode("utf-8")
 
-        return SendResult(success=False, message=f"飞书推送失败: {last_error}")
-
-    def _build_message(self, digest: dict[str, Any]) -> str:
+    def _build_content(self, digest: dict[str, Any]) -> str:
         phases = digest.get("phases", {})
         fetch = phases.get("fetch", {})
         dedup = phases.get("dedup", {})
@@ -105,10 +89,11 @@ class FeishuWebhookChannel(NotificationChannel):
             "",
         ]
 
-        # 这里可以添加更多详情，但目前保持简洁
-        lines.extend([
-            "查看完整简报：",
-            f"http://127.0.0.1:5173/digest",
-        ])
+        public_url = get_setting("feishu_public_callback_url", "")
+        if public_url:
+            lines.extend([
+                "查看完整简报：",
+                f"{public_url.rstrip('/')}/digest",
+            ])
 
         return "\n".join(lines)

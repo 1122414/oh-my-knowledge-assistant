@@ -343,6 +343,51 @@ class AgentRun(BaseSchema, table=True):
 
 
 # ===========================================
+# Agent 运行步骤表
+# ===========================================
+class AgentStep(BaseSchema, table=True):
+    """Agent 单步决策、工具调用和观察记录。"""
+
+    __tablename__ = "agent_steps"
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: int = Field(index=True, description="关联 AgentRun ID")
+    step_index: int = Field(description="步骤序号，从 0 开始")
+    step_type: str = Field(description="步骤类型: decision / tool / observation / final")
+    tool_name: str | None = Field(default=None, description="工具名称")
+    input_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="步骤输入")
+    output_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="步骤输出")
+    status: str = Field(default="success", description="状态: success / failed / denied / needs_confirm")
+    latency_ms: int = Field(default=0, description="耗时（毫秒）")
+    error_message: str | None = Field(default=None, description="错误信息")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+
+
+# ===========================================
+# Agent 主动目标表
+# ===========================================
+class AgentGoal(BaseSchema, table=True):
+    """可手动或按计划运行的受控 Agent 目标。"""
+
+    __tablename__ = "agent_goals"
+
+    id: str = Field(primary_key=True, description="目标 ID")
+    owner_external_id: str = Field(index=True, description="目标所属用户")
+    conversation_id: str = Field(description="结果所属会话")
+    objective: str = Field(description="目标描述")
+    status: str = Field(default="active", description="状态: active / paused / running / failed / completed")
+    schedule_cron: str | None = Field(default=None, description="可选 Cron 计划")
+    allowed_tools: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="允许使用的工具")
+    max_steps: int = Field(default=4, description="单次最大执行步数")
+    last_run_id: int | None = Field(default=None, description="最近 AgentRun ID")
+    last_result_preview: str = Field(default="", description="最近结果预览")
+    last_error: str | None = Field(default=None, description="最近错误")
+    last_run_at: datetime | None = Field(default=None, description="最近运行时间")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+
+
+# ===========================================
 # 记忆条目表
 # ===========================================
 class MemoryItem(BaseSchema, table=True):
@@ -353,6 +398,8 @@ class MemoryItem(BaseSchema, table=True):
     id: str = Field(primary_key=True, description="唯一标识")
     memory_type: str = Field(description="记忆类型: user / conversation / system")
     scope: str = Field(default="global", description="作用域: global / user / conversation / source / project")
+    owner_external_id: str | None = Field(default=None, index=True, description="所属用户外部 ID")
+    conversation_id: str | None = Field(default=None, index=True, description="所属会话 ID")
     subject: str = Field(description="主题: user_profile / project / preference / task / setting / status")
     content: str = Field(description="记忆内容")
     summary: str | None = Field(default=None, description="摘要")
@@ -441,7 +488,7 @@ class SystemAction(BaseSchema, table=True):
     target_id: str | None = Field(default=None, description="目标 ID")
     request_text: str | None = Field(default=None, description="原始请求文本")
     params_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="参数")
-    status: str = Field(default="pending", description="状态: pending / success / failed / denied / needs_confirm")
+    status: str = Field(default="pending", description="状态: pending / needs_confirm / running / success / failed / denied / cancelled")
     result_json: dict = Field(default_factory=dict, sa_column=Column(JSON), description="结果")
     error_message: str | None = Field(default=None, description="错误信息")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
@@ -548,10 +595,30 @@ def _migrate_fetch_runs(engine) -> None:
         logger.debug("迁移 fetch_runs 表跳过（可能表不存在）| error=%s", e)
 
 
+def _migrate_memory_items(engine) -> None:
+    """为旧数据库补齐记忆隔离字段。"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("PRAGMA table_info(memory_items)"))
+            existing_columns = {row[1] for row in result}
+            columns_to_add = [
+                ("owner_external_id", "TEXT"),
+                ("conversation_id", "TEXT"),
+            ]
+            for col_name, col_type in columns_to_add:
+                if col_name not in existing_columns:
+                    conn.execute(text(f"ALTER TABLE memory_items ADD COLUMN {col_name} {col_type}"))
+                    logger.info("迁移 memory_items 表 | 添加列: %s", col_name)
+            conn.commit()
+    except Exception as e:
+        logger.debug("迁移 memory_items 表跳过（可能表不存在）| error=%s", e)
+
+
 def init_db() -> None:
     """初始化数据库，创建所有表"""
     SQLModel.metadata.create_all(engine)
     _migrate_fetch_runs(engine)
+    _migrate_memory_items(engine)
     logger.info("数据库初始化完成 | 路径=%s", settings.database_url)
 
 

@@ -72,20 +72,31 @@ class FeishuApiService:
 
         if content:
             blocks_json = _build_content_json(content)
-            if blocks_json:
+            if not blocks_json:
+                raise FeishuApiError(
+                    f"文档内容解析失败: markdown转为空blocks | content_len={len(content)}",
+                    "EMPTY_BLOCKS",
+                )
+            chunk_size = 50
+            for batch_idx in range(0, len(blocks_json), chunk_size):
+                chunk = blocks_json[batch_idx:batch_idx + chunk_size]
                 req = (
                     lark.BaseRequest.builder()
                     .http_method(lark.HttpMethod.POST)
                     .uri(f"/open-apis/docx/v1/documents/{doc_id}/blocks/{doc_id}/children")
                     .token_types({lark.AccessTokenType.TENANT})
-                    .body({"children": blocks_json})
+                    .body({"children": chunk, "index": -1})
                     .build()
                 )
                 resp = self._client.request(req)
                 if resp.code != 0:
-                    logger.warning("文档内容写入失败 | doc_id=%s | code=%d | msg=%s", doc_id, resp.code, resp.msg)
+                    raise FeishuApiError(
+                        f"文档内容写入失败(批次{batch_idx // chunk_size + 1}): {resp.msg} | "
+                        f"blocks_count={len(blocks_json)} | chunk={len(chunk)}",
+                        str(resp.code),
+                    )
 
-        logger.info("飞书文档创建成功 | doc_id=%s | title=%s", doc_id, title)
+        logger.info("飞书文档创建成功 | doc_id=%s | title=%s | content_len=%d", doc_id, title, len(content) if content else 0)
         return {"doc_id": doc_id, "url": doc_url}
 
     async def get_document_raw_content(self, doc_id: str) -> str:

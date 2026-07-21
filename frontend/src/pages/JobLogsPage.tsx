@@ -32,27 +32,34 @@ export function JobLogsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Job Logs" description="任务运行日志" />
+    <div>
+      <PageHeader
+        eyebrow="Operations"
+        title="运行记录"
+        description="追踪每一次采集、清洗、排序和知识生成任务。"
+      />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="alert-panel mb-6 border-destructive/15 bg-destructive/[0.055] text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {runs.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
-            <ScrollText className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">暂无任务记录</p>
+          <div className="empty-state">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
+              <ScrollText className="h-6 w-6 text-muted-foreground" strokeWidth={1.6} />
+            </div>
+            <h2 className="mt-5 text-xl font-semibold tracking-[-0.03em]">暂无运行记录</h2>
+            <p className="mt-2 text-sm text-muted-foreground">首次运行知识采集后，这里会显示完整轨迹。</p>
           </div>
         ) : (
           runs.map((run) => (
             <div
               key={run.id}
-              className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+              className="apple-surface p-5 sm:p-6"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback } from "react"
-import { memoryApi, type MemoryItem, type MemoryProfileSummary } from "@/api/memory"
+import {
+  memoryApi,
+  type MemoryItem,
+  type MemoryProfileSummary,
+  type UserProfileSnapshot,
+} from "@/api/memory"
 
 export function useMemory() {
   const [memories, setMemories] = useState<MemoryItem[]>([])
   const [total, setTotal] = useState(0)
   const [profile, setProfile] = useState<MemoryProfileSummary | null>(null)
+  const [profileSnapshot, setProfileSnapshot] = useState<UserProfileSnapshot | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,8 +37,12 @@ export function useMemory() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const data = await memoryApi.getProfileSummary()
-      setProfile(data)
+      const [summary, snapshot] = await Promise.all([
+        memoryApi.getProfileSummary(),
+        memoryApi.getProfileSnapshot(),
+      ])
+      setProfile(summary)
+      setProfileSnapshot(snapshot)
     } catch (err) {
       console.error("加载记忆画像失败:", err)
     }
@@ -92,6 +102,25 @@ export function useMemory() {
     }
   }, [fetchMemories, fetchProfile])
 
+  const updateMemory = useCallback(async (
+    memory_id: string,
+    data: { content?: string; confidence?: number; importance?: number }
+  ) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await memoryApi.update(memory_id, data)
+      await fetchMemories()
+      await fetchProfile()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新失败")
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }, [fetchMemories, fetchProfile])
+
   const importProfile = useCallback(async () => {
     setSaving(true)
     setError(null)
@@ -115,6 +144,7 @@ export function useMemory() {
     memories,
     total,
     profile,
+    profileSnapshot,
     loading,
     saving,
     error,
@@ -122,6 +152,7 @@ export function useMemory() {
     confirmMemory,
     rejectMemory,
     deleteMemory,
+    updateMemory,
     importProfile,
     refetch: fetchMemories,
   }

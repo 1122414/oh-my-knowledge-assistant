@@ -1,6 +1,6 @@
 # OMKA - Oh My Knowledge Assistant
 
-> 个人智能知识助手：自动发现、筛选、沉淀 GitHub 技术资讯
+> 可追踪、可学习、可主动执行的个人知识 Agent
 
 ## 为什么做这个项目
 
@@ -11,12 +11,18 @@
 - **容易错过**：重要更新淹没在信息流中
 - **难以沉淀**：看到的好东西没有系统化保存
 
-**OMKA 的解决方案**：每天自动从 GitHub 采集你关注的内容，通过智能排序筛选出最值得看的，生成简报推送到飞书，支持一键收藏入库。
+**OMKA 的解决方案**：每天自动采集、筛选和沉淀你关心的知识，并通过统一 Agent Runtime 在 Web 与飞书中完成检索、解释、记忆、收藏和受控执行。
 
 ## 核心功能
 
 ```
 GitHub 信息源 → 自动抓取 → 结构化 → 去重 → 个性化排序 → AI 摘要 → 每日简报 → 飞书推送
+```
+
+同时，交互链路由统一 Runtime 驱动：
+
+```text
+用户目标 → 上下文检索 → 规划 → 工具调用 → 权限/确认 → 观察 → 回答 → 记忆与评估
 ```
 
 | 功能 | 状态 | 说明 |
@@ -32,6 +38,13 @@ GitHub 信息源 → 自动抓取 → 结构化 → 去重 → 个性化排序 �
 | 候选池管理 | ✅ | 收藏 / 忽略 / 入库 |
 | 知识库 | ✅ | 已确认的知识条目 |
 | 定时任务 | ✅ | APScheduler Cron 表达式 |
+| 统一 Agent Runtime | ✅ | Web / 飞书共享规划与工具循环 |
+| 工具权限与持久确认 | ✅ | 读、写、破坏性操作分级；确认可跨进程恢复 |
+| 用户域记忆 | ✅ | 用户/会话隔离、候选记忆确认、过期与使用追踪 |
+| 推荐反馈闭环 | ✅ | 收藏、忽略与反馈进入用户画像并影响后续推荐 |
+| Agent 可观测性 | ✅ | 步骤轨迹、回放、确定性质量评估 |
+| 主动 Agent Goal | ✅ | 手动或 Cron 运行、限定工具与最大步数 |
+| Apple 风格工作台 | ✅ | 响应式 Web UI、Agent 中心与生成式主视觉 |
 
 ## 技术栈
 
@@ -314,7 +327,8 @@ curl -X POST http://localhost:8000/digests/run-today
 ├── omka/                    # Python 后端包
 │   └── app/
 │       ├── main.py          # FastAPI 入口
-│       ├── api/             # API 路由（7 个模块）
+│       ├── api/             # API 路由
+│       ├── agents/          # Runtime、工具、上下文、记忆提取与评估
 │       ├── connectors/      # 数据源连接器（插件化）
 │       │   └── github/      # GitHub 实现
 │       ├── pipeline/        # 数据处理流水线
@@ -390,6 +404,17 @@ curl -X POST http://localhost:8000/digests/run-today
 | POST | `/settings/test-github` | 测试 GitHub Token |
 | POST | `/settings/test-llm` | 测试 LLM 配置 |
 | POST | `/settings/test-feishu` | 测试飞书 Webhook |
+| **Agent** | | |
+| POST | `/agent/test` | 在 Web 中执行一次 Agent 任务 |
+| GET | `/agent/runs` | 查询 Agent 运行 |
+| GET | `/agent/runs/{id}` | 查询步骤轨迹 |
+| POST | `/agent/runs/{id}/replay` | 使用最新上下文回放 |
+| GET | `/agent/runs/{id}/evaluation` | 运行质量评估 |
+| GET | `/agent-goals` | 查询主动目标 |
+| POST | `/agent-goals` | 创建手动或 Cron 目标 |
+| POST | `/agent-goals/{id}/run` | 立即运行目标 |
+| PUT | `/agent-goals/{id}/status` | 暂停或恢复目标 |
+| DELETE | `/agent-goals/{id}` | 删除目标 |
 
 完整 API 文档：`http://localhost:8000/docs`
 
@@ -403,6 +428,10 @@ curl -X POST http://localhost:8000/digests/run-today
 | `/digest` | 每日简报 | 查看生成的简报 |
 | `/knowledge` | 知识库 | 已收藏的知识条目 |
 | `/read-later` | 稍后阅读 | 待处理的候选条目 |
+| `/memory` | 记忆 | 管理用户记忆与候选记忆 |
+| `/assets` | 知识资产 | 管理上传与沉淀的知识资产 |
+| `/agent` | Agent 中心 | 执行任务、管理目标、查看轨迹与评估 |
+| `/push` | 推送策略 | 管理推送策略与历史 |
 | `/settings` | 设置 | 配置 GitHub / LLM / 飞书 |
 | `/job-logs` | 任务日志 | 查看执行历史 |
 
@@ -441,9 +470,20 @@ sqlite3 data/db/app.sqlite
 ### 运行测试
 
 ```bash
-# 需要先启动后端
+# Agent Runtime 与核心纯单元测试
+python -m pytest tests/test_agent_runtime.py tests/test_github_query_builder.py tests/test_github_quality_scoring.py tests/test_github_search_task.py -q
+
+# API 集成测试（需要先启动后端）
 python tests/test_api.py
+
+# 前端质量检查
+cd frontend
+npm run lint
+npm run build
 ```
+
+Agent 架构、工具风险策略、数据隔离和扩展方式详见
+[`docs/AGENT_RUNTIME.md`](docs/AGENT_RUNTIME.md)。
 
 ### 添加新的数据源
 

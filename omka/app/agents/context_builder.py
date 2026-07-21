@@ -1,4 +1,5 @@
 from omka.app.agents.base import AgentContext
+from omka.app.agents.tracing import AgentRunTracer, format_exception
 from omka.app.core.config import settings
 from omka.app.core.logging import get_logger, trace
 from omka.app.storage.db import (
@@ -37,13 +38,64 @@ class ContextBuilder:
         user_message: str,
         conversation_id: str,
         user_external_id: str,
+        tracer: AgentRunTracer | None = None,
+        task_brief: dict | None = None,
     ) -> AgentContext:
-        recent_messages = self._get_recent_messages(conversation_id)
-        digest_items = self._get_latest_digest_items()
-        knowledge_items = self._search_knowledge(user_message)
-        candidate_items = self._search_candidates(user_message)
-        memory_items = self._get_active_memories()
-        user_profile = self._get_user_profile()
+        retrieval_query = self._retrieval_query(user_message, task_brief)
+        recent_messages = self._collect_stage(
+            tracer,
+            stage_name="context.recent_messages",
+            input_json={"conversation_id": conversation_id},
+            collector=lambda: self._get_recent_messages(conversation_id),
+        )
+        digest_items = self._collect_stage(
+            tracer,
+            stage_name="context.daily_digest",
+            input_json={"limit": self.max_digest_items},
+            collector=self._get_latest_digest_items,
+        )
+        knowledge_items = self._collect_stage(
+            tracer,
+            stage_name="context.knowledge",
+            input_json={
+                "query": user_message,
+                "interpreted_query": retrieval_query,
+                "limit": self.max_knowledge_items,
+            },
+            collector=lambda: self._search_knowledge(retrieval_query),
+        )
+        candidate_items = self._collect_stage(
+            tracer,
+            stage_name="context.candidates",
+            input_json={
+                "query": user_message,
+                "interpreted_query": retrieval_query,
+                "limit": self.max_candidate_items,
+            },
+            collector=lambda: self._search_candidates(retrieval_query),
+        )
+        memory_items = self._collect_stage(
+            tracer,
+            stage_name="context.memory",
+            input_json={
+                "query": user_message,
+                "interpreted_query": retrieval_query,
+                "owner_external_id": user_external_id,
+                "conversation_id": conversation_id,
+                "limit": self.max_memory_items,
+            },
+            collector=lambda: self._get_active_memories(
+                user_external_id=user_external_id,
+                conversation_id=conversation_id,
+                query_text=retrieval_query,
+            ),
+        )
+        user_profile = self._collect_stage(
+            tracer,
+            stage_name="context.profile",
+            input_json={"owner_external_id": user_external_id},
+            collector=lambda: self._get_user_profile(user_external_id),
+        )
 
         context = AgentContext(
             user_message=user_message,
@@ -55,9 +107,103 @@ class ContextBuilder:
             candidate_items=candidate_items,
             memory_items=memory_items,
             user_profile=user_profile,
+            task_brief=task_brief or {},
         )
 
-        return self._trim_context(context)
+        trim_span = (
+            tracer.start(
+                step_type="context",
+                stage_name="context.assemble",
+                input_json={
+                    "max_context_chars": self.max_context_chars,
+                    "counts_before_trim": self._context_counts(context),
+                    "chars_before_trim": self._context_size(context),
+                },
+            )
+            if tracer
+            else None
+        )
+        trimmed = self._trim_context(context)
+        if tracer and trim_span:
+            tracer.finish(
+                trim_span,
+                output_json={
+                    "counts": self._context_counts(trimmed),
+                    "total_chars": self._context_size(trimmed),
+                },
+            )
+        return trimmed
+
+    def _collect_stage(
+        self,
+        tracer: AgentRunTracer | None,
+        *,
+        stage_name: str,
+        input_json: dict,
+        collector,
+    ):
+        if not tracer:
+            return collector()
+
+        span = tracer.start(
+            step_type="context",
+            stage_name=stage_name,
+            input_json=input_json,
+        )
+        try:
+            result = collector()
+        except Exception as exc:
+            error_message = format_exception(exc)
+            tracer.finish(
+                span,
+                status="failed",
+                error_message=error_message,
+            )
+            raise
+
+        tracer.finish(
+            span,
+            output_json=self._trace_output(result),
+        )
+        return result
+
+    @classmethod
+    def _trace_output(cls, result) -> dict:
+        if isinstance(result, list):
+            return {
+                "count": len(result),
+                "items": cls._preview_trace_value(result),
+            }
+        if isinstance(result, dict):
+            return {
+                "count": len(result),
+                "data": cls._preview_trace_value(result),
+            }
+        return {"value": cls._preview_trace_value(result)}
+
+    @classmethod
+    def _preview_trace_value(cls, value):
+        if isinstance(value, str):
+            return value if len(value) <= 500 else value[:500] + "…"
+        if isinstance(value, list):
+            return [cls._preview_trace_value(item) for item in value[:10]]
+        if isinstance(value, dict):
+            return {
+                str(key): cls._preview_trace_value(item)
+                for key, item in value.items()
+            }
+        return value
+
+    @staticmethod
+    def _context_counts(context: AgentContext) -> dict[str, int]:
+        return {
+            "recent_messages": len(context.recent_messages),
+            "digest_items": len(context.digest_items),
+            "knowledge_items": len(context.knowledge_items),
+            "candidate_items": len(context.candidate_items),
+            "memory_items": len(context.memory_items),
+            "profile_fields": len(context.user_profile),
+        }
 
     def _get_recent_messages(self, conversation_id: str) -> list[dict[str, str]]:
         """获取最近对话消息"""
@@ -136,9 +282,11 @@ class ContextBuilder:
                 scored.sort(key=lambda x: x[0], reverse=True)
                 return [
                     {
+                        "id": item.id,
                         "title": item.title,
                         "summary": (item.summary or "")[:200],
                         "tags": ", ".join(item.tags or []),
+                        "url": item.url,
                     }
                     for _, item in scored[:self.max_knowledge_items]
                 ]
@@ -158,9 +306,11 @@ class ContextBuilder:
 
                 return [
                     {
+                        "id": item.id,
                         "title": item.title,
                         "summary": (item.summary or "")[:200],
                         "tags": ", ".join(item.tags or []),
+                        "url": item.url,
                     }
                     for item in items
                 ]
@@ -195,9 +345,11 @@ class ContextBuilder:
                 scored.sort(key=lambda x: x[0], reverse=True)
                 return [
                     {
+                        "id": item.id,
                         "title": item.title,
                         "summary": (item.summary or "")[:200],
                         "score": str(item.score),
+                        "url": item.url,
                     }
                     for _, item in scored[:self.max_candidate_items]
                 ]
@@ -218,9 +370,11 @@ class ContextBuilder:
 
                 return [
                     {
+                        "id": item.id,
                         "title": item.title,
                         "summary": (item.summary or "")[:200],
                         "score": str(item.score),
+                        "url": item.url,
                     }
                     for item in items
                 ]
@@ -228,16 +382,29 @@ class ContextBuilder:
             logger.error("获取 top 候选失败 | error=%s", e)
             return []
 
-    def _get_active_memories(self) -> list[dict[str, str]]:
+    def _get_active_memories(
+        self,
+        user_external_id: str,
+        conversation_id: str,
+        query_text: str,
+    ) -> list[dict[str, str]]:
         try:
             from omka.app.services.memory_service import MemoryService
 
-            memories = MemoryService.get_active_memories_for_context(max_items=self.max_memory_items)
+            memories = MemoryService.get_active_memories_for_context(
+                owner_external_id=user_external_id,
+                conversation_id=conversation_id,
+                query_text=query_text,
+                max_items=self.max_memory_items,
+            )
+            MemoryService.mark_memories_used([memory.id for memory in memories])
             return [
                 {
+                    "id": m.id,
                     "type": m.memory_type,
                     "subject": m.subject,
                     "content": m.content[:200] if len(m.content) > 200 else m.content,
+                    "source_ref": m.source_ref or "",
                 }
                 for m in memories
             ]
@@ -245,18 +412,26 @@ class ContextBuilder:
             logger.error("获取活跃记忆失败 | error=%s", e)
             return []
 
-    def _get_user_profile(self) -> dict[str, str]:
-        """获取用户兴趣配置"""
+    def _get_user_profile(self, user_external_id: str) -> dict[str, str]:
+        """获取带证据与置信度的用户画像上下文。"""
         try:
-            from omka.app.profiles.profile_loader import load_interests
+            from omka.app.services.user_profile_service import UserProfileService
 
-            interests = load_interests()
-            return {
-                "interests": ", ".join(i.get("name", "") for i in interests),
-            }
+            snapshot = UserProfileService.build_snapshot(user_external_id)
+            return snapshot.to_context()
         except Exception as e:
             logger.error("获取用户配置失败 | error=%s", e)
             return {}
+
+    @staticmethod
+    def _retrieval_query(user_message: str, task_brief: dict | None) -> str:
+        if not task_brief:
+            return user_message
+        parts = [str(task_brief.get("goal") or user_message)]
+        entities = task_brief.get("entities")
+        if isinstance(entities, list):
+            parts.extend(str(entity) for entity in entities if str(entity).strip())
+        return " ".join(dict.fromkeys(parts))
 
     def _extract_keywords(self, text: str) -> list[str]:
         """从文本中提取关键词"""
@@ -274,12 +449,7 @@ class ContextBuilder:
         return score
 
     def _trim_context(self, context: AgentContext) -> AgentContext:
-        total_chars = len(context.user_message)
-        total_chars += sum(len(m.get("content", "")) for m in context.recent_messages)
-        total_chars += sum(len(d.get("title", "") + d.get("summary", "")) for d in context.digest_items)
-        total_chars += sum(len(k.get("title", "") + k.get("summary", "")) for k in context.knowledge_items)
-        total_chars += sum(len(c.get("title", "") + c.get("summary", "")) for c in context.candidate_items)
-        total_chars += sum(len(m.get("content", "")) for m in context.memory_items)
+        total_chars = self._context_size(context)
 
         if total_chars <= self.max_context_chars:
             return context
@@ -304,3 +474,28 @@ class ContextBuilder:
                 break
 
         return context
+
+    @staticmethod
+    def _context_size(context: AgentContext) -> int:
+        total_chars = len(context.user_message)
+        total_chars += sum(
+            len(message.get("content", ""))
+            for message in context.recent_messages
+        )
+        total_chars += sum(
+            len(item.get("title", "") + item.get("summary", ""))
+            for item in context.digest_items
+        )
+        total_chars += sum(
+            len(item.get("title", "") + item.get("summary", ""))
+            for item in context.knowledge_items
+        )
+        total_chars += sum(
+            len(item.get("title", "") + item.get("summary", ""))
+            for item in context.candidate_items
+        )
+        total_chars += sum(
+            len(item.get("content", ""))
+            for item in context.memory_items
+        )
+        return total_chars

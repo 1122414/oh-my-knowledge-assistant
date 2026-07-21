@@ -6,10 +6,10 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <AppSidebar />
-      <main className="pl-0 md:pl-64">
-        <div className="mx-auto max-w-6xl p-4 md:p-8">
+      <main className="min-h-screen pt-16 md:pl-[252px] md:pt-0">
+        <div className="page-enter mx-auto w-full max-w-[1400px] px-4 pb-16 pt-6 sm:px-6 md:px-8 md:pt-10 lg:px-12 lg:pb-24">
           {children}
         </div>
       </main>

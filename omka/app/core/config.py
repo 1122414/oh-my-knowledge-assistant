@@ -59,6 +59,18 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.7, description="采样温度", ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=2048, description="最大生成 Token 数")
     llm_timeout: int = Field(default=30, description="LLM 请求超时（秒）")
+    llm_retry_max_attempts: int = Field(
+        default=5,
+        description="LLM 瞬时网络错误最大尝试次数",
+        ge=1,
+        le=8,
+    )
+    llm_retry_base_delay: float = Field(
+        default=1.0,
+        description="LLM 指数退避基础间隔（秒）",
+        ge=0.1,
+        le=10,
+    )
 
     # Ollama 本地模型配置
     ollama_base_url: str = Field(default="http://localhost:11434", description="Ollama 服务地址")

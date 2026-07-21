@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -14,7 +16,8 @@ class AgentContext(BaseModel):
     knowledge_items: list[dict[str, str]] = Field(default_factory=list, description="已收藏知识")
     candidate_items: list[dict[str, str]] = Field(default_factory=list, description="候选内容")
     memory_items: list[dict[str, str]] = Field(default_factory=list, description="活跃记忆")
-    user_profile: dict[str, str] = Field(default_factory=dict, description="用户兴趣配置")
+    user_profile: dict[str, Any] = Field(default_factory=dict, description="证据驱动的用户画像")
+    task_brief: dict[str, Any] = Field(default_factory=dict, description="结构化任务理解")
 
 
 class AgentResponse(BaseModel):
@@ -23,6 +26,8 @@ class AgentResponse(BaseModel):
     answer: str = Field(description="回答文本")
     used_context: list[dict[str, str]] = Field(default_factory=list, description="使用的上下文")
     suggested_actions: list[str] = Field(default_factory=list, description="建议的下一步动作")
+    run_id: int | None = Field(default=None, description="关联 AgentRun ID")
+    status: str = Field(default="success", description="运行状态")
 
 
 class BaseAgent(ABC):

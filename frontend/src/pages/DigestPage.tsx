@@ -1,6 +1,29 @@
-import { Bookmark, EyeOff, ThumbsDown, Clock, Loader2, AlertCircle, ExternalLink, Newspaper, CheckSquare, Square, X } from "lucide-react"
+import {
+  Bookmark,
+  EyeOff,
+  ThumbsDown,
+  Clock3,
+  Loader2,
+  AlertCircle,
+  ExternalLink,
+  Newspaper,
+  Check,
+  Minus,
+  X,
+  Sparkles,
+} from "lucide-react"
+import { Link } from "react-router-dom"
 import { PageHeader } from "@/components/layout/page-header"
 import { useCandidates } from "@/hooks/use-candidates"
+import { cn } from "@/lib/cn"
+
+const scoreDimensions = [
+  ["interest_score", "兴趣", 0.3],
+  ["project_score", "项目", 0.2],
+  ["source_quality_score", "质量", 0.25],
+  ["freshness_score", "新鲜", 0.15],
+  ["popularity_score", "热度", 0.1],
+] as const
 
 export function DigestPage() {
   const {
@@ -19,227 +42,248 @@ export function DigestPage() {
   } = useCandidates()
 
   if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <DigestSkeleton />
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Digest" description="每日推荐内容" />
+    <div>
+      <PageHeader
+        eyebrow="Daily Intelligence"
+        title="今日精选"
+        description="从持续流入的信息中，只留下真正值得你投入注意力的部分。"
+      >
+        {candidates.length > 0 && (
+          <button onClick={allSelected ? clearSelection : selectAll} className="secondary-button">
+            {allSelected ? <Minus className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+            {allSelected ? "取消全选" : "选择全部"}
+          </button>
+        )}
+      </PageHeader>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
+        <div className="alert-panel mb-6 border-destructive/15 bg-destructive/[0.055] text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      {candidates.length > 0 && (
-        <div className="flex items-center gap-3">
-          <button
-            onClick={allSelected ? clearSelection : selectAll}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent"
-          >
-            {allSelected ? (
-              <CheckSquare className="h-4 w-4" />
-            ) : (
-              <Square className="h-4 w-4" />
-            )}
-            {allSelected ? "取消全选" : "全选"}
-          </button>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {candidates.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
-            <Newspaper className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">暂无推荐内容，请先运行一次抓取任务</p>
+      {candidates.length === 0 ? (
+        <div className="empty-state">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
+            <Newspaper className="h-6 w-6 text-muted-foreground" strokeWidth={1.6} />
           </div>
-        ) : (
-          candidates.map((candidate) => {
+          <h2 className="mt-5 text-xl font-semibold tracking-[-0.03em]">今天还没有精选内容</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+            运行一次知识采集，OMKA 会根据兴趣、项目、新鲜度与源头质量完成筛选。
+          </p>
+          <Link to="/" className="primary-button mt-6">返回概览</Link>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <div className="apple-surface-subtle flex items-center justify-between px-4 py-3 sm:px-5">
+            <div>
+              <p className="text-sm font-medium">{candidates.length} 条推荐等待你的判断</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">反馈会持续改善后续排序</p>
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">已选 {selectedCount}</p>
+          </div>
+
+          {candidates.map((candidate, index) => {
             const isSelected = selectedIds.has(candidate.id)
             return (
-              <div
+              <article
                 key={candidate.id}
-                className={`rounded-2xl border bg-card p-6 shadow-sm transition-colors ${
-                  isSelected ? "border-primary/50 bg-primary/5" : "border-border"
-                }`}
+                className={cn(
+                  "apple-surface overflow-hidden p-5 transition-all duration-300 sm:p-7",
+                  isSelected
+                    ? "border-primary/30 ring-4 ring-primary/[0.08]"
+                    : "hover:-translate-y-0.5 hover:shadow-[0_18px_48px_rgba(0,0,0,0.075)]"
+                )}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <button
-                      onClick={() => toggleSelection(candidate.id)}
-                      className="mt-1 flex-shrink-0 text-muted-foreground hover:text-primary"
+                <div className="flex items-start gap-4 sm:gap-5">
+                  <button
+                    onClick={() => toggleSelection(candidate.id)}
+                    className={cn(
+                      "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all",
+                      isSelected
+                        ? "border-primary bg-primary text-white"
+                        : "border-black/15 bg-white text-transparent hover:border-primary/50"
+                    )}
+                    aria-label={isSelected ? "取消选择" : "选择"}
+                  >
+                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                        {candidate.item_type}
+                      </span>
+                      {candidate.source_name && (
+                        <>
+                          <span className="h-1 w-1 rounded-full bg-border" />
+                          <span className="text-xs text-muted-foreground">{candidate.source_name}</span>
+                        </>
+                      )}
+                      <span className="ml-auto rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold tabular-nums">
+                        {candidate.score.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <a
+                      href={candidate.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 inline-flex max-w-full items-start gap-2 text-xl font-semibold leading-7 tracking-[-0.03em] transition-colors hover:text-primary sm:text-2xl sm:leading-8"
                     >
-                      {isSelected ? (
-                        <CheckSquare className="h-5 w-5 text-primary" />
-                      ) : (
-                        <Square className="h-5 w-5" />
-                      )}
-                    </button>
+                      <span>{candidate.title}</span>
+                      <ExternalLink className="mt-1.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    </a>
 
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                          {candidate.item_type}
-                        </span>
-                        {candidate.source_name && (
-                          <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            {candidate.source_name}
-                          </span>
-                        )}
-                      </div>
+                    {candidate.summary && (
+                      <p className="mt-3 max-w-4xl text-[15px] leading-6 text-muted-foreground">
+                        {candidate.summary}
+                      </p>
+                    )}
 
-                      <a
-                        href={candidate.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1 text-lg font-semibold hover:text-primary"
-                      >
-                        {candidate.title}
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-
-                      {candidate.summary && (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {candidate.summary}
+                    {candidate.recommendation_reason && (
+                      <div className="mt-5 flex items-start gap-2.5 border-l-2 border-primary/45 pl-3.5">
+                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={1.8} />
+                        <p className="text-sm leading-5">
+                          <span className="font-medium">推荐判断：</span>
+                          <span className="text-muted-foreground">{candidate.recommendation_reason}</span>
                         </p>
-                      )}
+                      </div>
+                    )}
 
-                      {candidate.score_detail && (
-                        <div className="mt-3 rounded-lg bg-muted/50 p-3">
-                          <p className="text-sm font-medium">
-                            评分: {candidate.score.toFixed(2)}
-                          </p>
-                          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                            {[
-                              ["interest_score", "兴趣匹配", 0.30],
-                              ["project_score", "项目相关", 0.20],
-                              ["source_quality_score", "源头质量", 0.25],
-                              ["freshness_score", "新鲜度", 0.15],
-                              ["popularity_score", "热度", 0.10],
-                            ].map(([key, label, weight]) => {
-                              const val = typeof candidate.score_detail?.[key] === "number"
-                                ? (candidate.score_detail[key] as number).toFixed(2)
-                                : "0.00"
-                              const pct = `${(Number(weight) * 100).toFixed(0)}%`
-                              return (
-                                <div key={key} className="flex items-center gap-1">
-                                  <span>{label}</span>
-                                  <span className="font-mono font-medium">{val}</span>
-                                  <span className="opacity-50">({pct})</span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
+                    {candidate.score_detail && (
+                      <div className="mt-6 grid gap-3 border-t border-black/[0.055] pt-5 sm:grid-cols-5">
+                        {scoreDimensions.map(([key, label, weight]) => {
+                          const raw = candidate.score_detail?.[key]
+                          const value = typeof raw === "number" ? raw : 0
+                          const normalized = Math.max(4, Math.min(100, value * 100))
+                          return (
+                            <div key={key}>
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-medium text-muted-foreground">{label}</span>
+                                <span className="tabular-nums text-foreground/70">{value.toFixed(2)}</span>
+                              </div>
+                              <div className="mt-2 h-1 overflow-hidden rounded-full bg-secondary">
+                                <div className="h-full rounded-full bg-foreground/65" style={{ width: `${normalized}%` }} />
+                              </div>
+                              <p className="mt-1.5 text-[10px] text-muted-foreground/60">权重 {Math.round(weight * 100)}%</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
 
-                      {candidate.recommendation_reason && (
-                        <div className="mt-3 rounded-lg bg-accent/50 p-3">
-                          <p className="text-sm">
-                            <span className="font-medium">推荐理由: </span>
-                            {candidate.recommendation_reason}
-                          </p>
-                        </div>
-                      )}
+                    {(candidate.matched_interests.length > 0 || candidate.matched_projects.length > 0) && (
+                      <div className="mt-5 flex flex-wrap gap-1.5">
+                        {[...candidate.matched_interests, ...candidate.matched_projects].map((tag) => (
+                          <span key={tag} className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
-                      {(candidate.matched_interests.length > 0 || candidate.matched_projects.length > 0) && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {candidate.matched_interests.map((interest) => (
-                            <span
-                              key={interest}
-                              className="rounded-md bg-secondary px-2 py-0.5 text-xs"
-                            >
-                              {interest}
-                            </span>
-                          ))}
-                          {candidate.matched_projects.map((project) => (
-                            <span
-                              key={project}
-                              className="rounded-md bg-secondary px-2 py-0.5 text-xs"
-                            >
-                              {project}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                    <div className="mt-6 flex flex-wrap gap-2 border-t border-black/[0.055] pt-5">
+                      <ActionButton
+                        icon={Bookmark}
+                        label="收藏"
+                        onClick={() => handleAction(candidate.id, "save")}
+                        loading={actionLoading === candidate.id}
+                        primary={index === 0}
+                      />
+                      <ActionButton
+                        icon={Clock3}
+                        label="稍后阅读"
+                        onClick={() => handleAction(candidate.id, "readLater")}
+                        loading={actionLoading === candidate.id}
+                      />
+                      <ActionButton
+                        icon={EyeOff}
+                        label="忽略"
+                        onClick={() => handleAction(candidate.id, "ignore")}
+                        loading={actionLoading === candidate.id}
+                      />
+                      <ActionButton
+                        icon={ThumbsDown}
+                        label="不感兴趣"
+                        onClick={() => handleAction(candidate.id, "dislike")}
+                        loading={actionLoading === candidate.id}
+                        destructive
+                      />
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => handleAction(candidate.id, "save")}
-                    disabled={actionLoading === candidate.id}
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
-                  >
-                    <Bookmark className="h-3.5 w-3.5" />
-                    收藏
-                  </button>
-                  <button
-                    onClick={() => handleAction(candidate.id, "ignore")}
-                    disabled={actionLoading === candidate.id}
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
-                  >
-                    <EyeOff className="h-3.5 w-3.5" />
-                    忽略
-                  </button>
-                  <button
-                    onClick={() => handleAction(candidate.id, "dislike")}
-                    disabled={actionLoading === candidate.id}
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                  >
-                    <ThumbsDown className="h-3.5 w-3.5" />
-                    不感兴趣
-                  </button>
-                  <button
-                    onClick={() => handleAction(candidate.id, "readLater")}
-                    disabled={actionLoading === candidate.id}
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
-                  >
-                    <Clock className="h-3.5 w-3.5" />
-                    稍后阅读
-                  </button>
-                </div>
-              </div>
+              </article>
             )
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
 
       {selectedCount > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-primary/30 bg-card px-5 py-3 shadow-lg">
-          <span className="text-sm font-medium">
-            已选 {selectedCount} 项
-          </span>
-          <button
-            onClick={() => clearSelection()}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
+        <div className="fixed bottom-5 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-center gap-2 rounded-full border border-black/[0.08] bg-white/88 p-2 pl-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-2xl">
+          <span className="mr-auto text-sm font-medium">已选 {selectedCount} 项</span>
+          <button onClick={() => clearSelection()} className="icon-button h-9 w-9 border-0 bg-secondary">
             <X className="h-4 w-4" />
           </button>
-          <div className="mx-1 h-5 w-px bg-border" />
-          <button
-            onClick={() => batchAction("confirm")}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Bookmark className="h-3.5 w-3.5" />
-            批量收藏
-          </button>
-          <button
-            onClick={() => batchAction("ignore")}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent"
-          >
-            <EyeOff className="h-3.5 w-3.5" />
+          <button onClick={() => batchAction("ignore")} className="secondary-button min-h-9 px-3 py-1.5">
             批量忽略
+          </button>
+          <button onClick={() => batchAction("confirm")} className="primary-button min-h-9 px-3 py-1.5">
+            <Bookmark className="h-3.5 w-3.5" />
+            收藏
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+  loading,
+  primary = false,
+  destructive = false,
+}: {
+  icon: typeof Bookmark
+  label: string
+  onClick: () => void
+  loading: boolean
+  primary?: boolean
+  destructive?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className={cn(
+        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium disabled:opacity-50",
+        primary
+          ? "border-primary bg-primary text-white shadow-sm hover:bg-primary/90"
+          : destructive
+            ? "border-transparent text-destructive hover:bg-destructive/[0.07]"
+            : "border-black/[0.075] bg-white/65 text-foreground hover:border-black/[0.13] hover:bg-white"
+      )}
+    >
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+      {label}
+    </button>
+  )
+}
+
+function DigestSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="h-28 animate-pulse rounded-3xl bg-white/50" />
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="apple-surface h-72 animate-pulse bg-white/60" />
+      ))}
     </div>
   )
 }

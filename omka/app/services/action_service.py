@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import update
 from sqlmodel import col, func, select
 
 from omka.app.core.logging import logger
@@ -85,6 +86,28 @@ class ActionService:
                     action.confirmed_at = datetime.utcnow()
                 session.add(action)
                 session.commit()
+
+    @staticmethod
+    def claim_confirmation(
+        action_id: int,
+        actor_external_id: str,
+    ) -> SystemAction | None:
+        """Atomically claim one confirmation so it cannot execute twice."""
+        with get_session() as session:
+            result = session.exec(
+                update(SystemAction)
+                .where(SystemAction.id == action_id)
+                .where(SystemAction.status == "needs_confirm")
+                .where(SystemAction.actor_external_id == actor_external_id)
+                .values(
+                    status="running",
+                    confirmed_at=datetime.utcnow(),
+                )
+            )
+            session.commit()
+            if result.rowcount != 1:
+                return None
+            return session.get(SystemAction, action_id)
 
 
 class SourceActionService:

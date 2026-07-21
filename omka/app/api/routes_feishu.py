@@ -136,17 +136,28 @@ async def handle_feishu_event(request: Request):
             message_id = message.get("message_id")
 
         with get_session() as session:
-            log = FeishuEventLog(
-                event_id=event_id,
-                event_type=event_type,
-                chat_id=chat_id,
-                sender_id=sender_id,
-                message_id=message_id,
-                raw_event_json=payload,
-                handled_status="routed" if result.get("code") == 0 else "failed",
-                error_message=result.get("error"),
-            )
-            session.add(log)
+            existing = session.exec(
+                select(FeishuEventLog).where(FeishuEventLog.event_id == event_id)
+            ).first()
+            if existing:
+                existing.chat_id = chat_id or existing.chat_id
+                existing.sender_id = sender_id or existing.sender_id
+                existing.message_id = message_id or existing.message_id
+                existing.handled_status = "routed" if result.get("code") == 0 else "failed"
+                existing.error_message = result.get("error")
+                session.add(existing)
+            else:
+                log = FeishuEventLog(
+                    event_id=event_id,
+                    event_type=event_type,
+                    chat_id=chat_id,
+                    sender_id=sender_id,
+                    message_id=message_id,
+                    raw_event_json=payload,
+                    handled_status="routed" if result.get("code") == 0 else "failed",
+                    error_message=result.get("error"),
+                )
+                session.add(log)
             session.commit()
 
         return result

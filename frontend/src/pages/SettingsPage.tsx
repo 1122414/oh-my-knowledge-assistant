@@ -28,7 +28,7 @@ function Field({ label, keyName, type = "text", placeholder, help, value, onChan
           value={value}
           placeholder={placeholder}
           onChange={(e) => onChange(keyName, e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-20 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="field-control pr-20"
         />
         {isSecret && (
           <button
@@ -59,18 +59,18 @@ interface SectionProps {
 
 function Section({ title, icon: Icon, children, keys, saving, onSave }: SectionProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section className="apple-surface p-5 sm:p-7">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary">
+            <Icon className="h-5 w-5 text-foreground" strokeWidth={1.7} />
           </div>
           <h2 className="text-lg font-semibold">{title}</h2>
         </div>
         <button
           onClick={() => onSave(keys)}
           disabled={saving}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="primary-button min-h-9 px-3.5 py-1.5"
         >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -81,7 +81,7 @@ function Section({ title, icon: Icon, children, keys, saving, onSave }: SectionP
         </button>
       </div>
       {children}
-    </div>
+    </section>
   )
 }
 
@@ -122,11 +122,15 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Settings" description="管理应用配置和集成" />
+    <div>
+      <PageHeader
+        eyebrow="System Configuration"
+        title="设置"
+        description="集中管理信息源、模型、Agent、安全策略与外部集成。"
+      />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="alert-panel mb-6 border-destructive/15 bg-destructive/[0.055] text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
@@ -135,7 +139,7 @@ export function SettingsPage() {
       {testResult && (
         <div
           className={cn(
-            "flex items-center gap-2 rounded-lg border p-4 text-sm",
+            "alert-panel mb-6",
             testResult.success
               ? "border-success/20 bg-success/10 text-success"
               : "border-destructive/20 bg-destructive/10 text-destructive"
@@ -150,6 +154,7 @@ export function SettingsPage() {
         </div>
       )}
 
+      <div className="grid items-start gap-6 xl:grid-cols-2">
       <Section
         title="GitHub"
         icon={Globe}
@@ -794,6 +799,7 @@ export function SettingsPage() {
           />
         </div>
       </Section>
+      </div>
     </div>
   )
 }

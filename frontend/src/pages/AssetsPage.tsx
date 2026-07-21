@@ -75,12 +75,13 @@ export function AssetsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="资产管理"
-        description="管理上传的多模态知识资产"
+        eyebrow="Knowledge Assets"
+        title="知识资产"
+        description="管理图片、文档与其他可被 Agent 理解和引用的多模态内容。"
       />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="alert-panel border-destructive/15 bg-destructive/[0.055] text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
@@ -91,7 +92,7 @@ export function AssetsPage() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="field-control w-auto min-w-36"
           >
             <option value="">所有类型</option>
             <option value="image">图片</option>
@@ -103,7 +104,7 @@ export function AssetsPage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="field-control w-auto min-w-36"
           >
             <option value="">所有状态</option>
             <option value="uploaded">已上传</option>
@@ -118,7 +119,7 @@ export function AssetsPage() {
                 setFilterType("")
                 setFilterStatus("")
               }}
-              className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent"
+              className="secondary-button"
             >
               清除筛选
             </button>

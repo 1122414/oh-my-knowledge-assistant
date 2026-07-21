@@ -3,6 +3,7 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 
 export default defineConfig({
+  root: __dirname,
   plugins: [react()],
   resolve: {
     alias: {
@@ -12,11 +13,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/settings": "http://127.0.0.1:8000",
-      "/sources": "http://127.0.0.1:8000",
-      "/candidates": "http://127.0.0.1:8000",
-      "/digests": "http://127.0.0.1:8000",
-      "/knowledge": "http://127.0.0.1:8000",
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
     },
   },
 })

@@ -19,12 +19,10 @@ def _ws_process_main(config_dict: dict) -> None:
     from lark_oapi.api.im.v1 import P2ImMessageReceiveV1
     from lark_oapi.ws import Client as WsClient
 
-    from omka.app.core.logging import setup_logging, logger as proc_logger
     from omka.app.integrations.feishu.config import FeishuConfig
     from omka.app.integrations.feishu.event_handler import FeishuEventHandler
 
-    setup_logging()
-    proc_logger.info("飞书长连接子进程启动 | pid=%s", os.getpid())
+    logger.info("飞书长连接子进程启动 | pid=%s", os.getpid())
 
     config = FeishuConfig(**config_dict)
     event_handler_instance = FeishuEventHandler(config)
@@ -32,15 +30,15 @@ def _ws_process_main(config_dict: dict) -> None:
     loop = asyncio.new_event_loop()
     loop_thread = threading.Thread(target=_run_event_loop, args=(loop,), daemon=True)
     loop_thread.start()
-    proc_logger.info("事件循环线程已启动")
+    logger.info("事件循环线程已启动")
 
     def handle_message(data: P2ImMessageReceiveV1) -> None:
-        proc_logger.info("收到飞书长连接消息事件")
+        logger.info("收到飞书长连接消息事件")
         import traceback
         try:
             event = data.event
             if not event:
-                proc_logger.warning("事件数据为空")
+                logger.warning("事件数据为空")
                 return
 
             message = event.message
@@ -53,7 +51,7 @@ def _ws_process_main(config_dict: dict) -> None:
             content = message.content if message else ""
             open_id = sender.sender_id.open_id if sender and sender.sender_id else ""
 
-            proc_logger.info(
+            logger.info(
                 "解析消息 | message_id=%s | chat_type=%s | sender=%s | type=%s | content=%s",
                 message_id, chat_type, open_id, message_type, content[:50] if content else ""
             )
@@ -86,23 +84,23 @@ def _ws_process_main(config_dict: dict) -> None:
             }
 
 
-            proc_logger.info("提交事件到处理器")
+            logger.info("提交事件到处理器")
             future = asyncio.run_coroutine_threadsafe(
                 event_handler_instance.handle_event(payload), loop
             )
             try:
                 result = future.result(timeout=120)
-                proc_logger.info("事件处理完成 | result=%s", result)
+                logger.info("事件处理完成 | result=%s", result)
             except concurrent.futures.TimeoutError:
-                proc_logger.error("事件处理超时（120秒）")
+                logger.error("事件处理超时（120秒）")
             except Exception as e:
-                proc_logger.error("事件处理异常 | error=%s | type=%s\n%s", e, type(e).__name__, traceback.format_exc())
+                logger.error("事件处理异常 | error=%s | type=%s\n%s", e, type(e).__name__, traceback.format_exc())
 
         except Exception as e:
-            proc_logger.error("处理长连接消息事件失败 | error=%s | type=%s\n%s", e, type(e).__name__, traceback.format_exc())
+            logger.error("处理长连接消息事件失败 | error=%s | type=%s\n%s", e, type(e).__name__, traceback.format_exc())
 
     def handle_card_action(data) -> None:
-        proc_logger.info("收到飞书卡片动作事件")
+        logger.info("收到飞书卡片动作事件")
         import traceback
         try:
             event = getattr(data, "event", None)
@@ -116,7 +114,7 @@ def _ws_process_main(config_dict: dict) -> None:
             except (json.JSONDecodeError, TypeError):
                 action_value = {"raw": action_value_str}
 
-            proc_logger.info(
+            logger.info(
                 "卡片动作解析 | action_type=%s | candidate_id=%s",
                 action_value.get("action", "?"),
                 action_value.get("id", "?"),
@@ -148,16 +146,16 @@ def _ws_process_main(config_dict: dict) -> None:
                         },
                     },
                 }
-                proc_logger.info("卡片动作转为命令 | cmd=%s %s", act, candidate_id)
+                logger.info("卡片动作转为命令 | cmd=%s %s", act, candidate_id)
                 future = asyncio.run_coroutine_threadsafe(
                     event_handler_instance.handle_event(synthetic_payload), loop
                 )
                 try:
                     future.result(timeout=30)
                 except concurrent.futures.TimeoutError:
-                    proc_logger.error("卡片动作处理超时")
+                    logger.error("卡片动作处理超时")
         except Exception as e:
-            proc_logger.error("处理卡片动作失败 | error=%s\n%s", e, traceback.format_exc())
+            logger.error("处理卡片动作失败 | error=%s\n%s", e, traceback.format_exc())
 
     dispatcher = lark.EventDispatcherHandler.builder(
         config.encrypt_key,
@@ -174,7 +172,7 @@ def _ws_process_main(config_dict: dict) -> None:
         auto_reconnect=True,
     )
 
-    proc_logger.info("飞书长连接开始 | app_id=%s", config.app_id[:8] + "****")
+    logger.info("飞书长连接开始 | app_id=%s", config.app_id[:8] + "****")
     ws_client.start()
 
 

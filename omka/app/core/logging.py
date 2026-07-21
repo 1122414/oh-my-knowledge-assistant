@@ -41,7 +41,7 @@ from omka.app.core.config import settings
 # ============================================================
 
 _trace_id: ContextVar[str] = ContextVar("trace_id", default="")
-_trace_spans: ContextVar[list[dict[str, Any]]] = ContextVar("trace_spans", default_factory=list)
+_trace_spans: ContextVar[list[dict[str, Any]]] = ContextVar("trace_spans")
 
 
 class TraceContext:
@@ -89,8 +89,11 @@ class TraceContext:
 
     @staticmethod
     def add_span(name: str, elapsed_ms: float, **kwargs: Any):
+        try:
+            spans = _trace_spans.get()
+        except LookupError:
+            return
         span = {"name": name, "elapsed_ms": round(elapsed_ms, 2), **kwargs}
-        spans = _trace_spans.get()
         spans.append(span)
 
 

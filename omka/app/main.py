@@ -28,8 +28,10 @@ async def lifespan(app: FastAPI):
 
     start_scheduler()
 
+    from omka.app.services.agent_goal_service import AgentGoalService
     from omka.app.services.daily_job import run_daily_job
     schedule_daily_job(run_daily_job)
+    AgentGoalService.restore_schedules()
 
     _start_feishu_ws()
 
@@ -108,7 +110,22 @@ async def health_check():
     }
 
 
-from omka.app.api import routes_agent, routes_asset, routes_digest, routes_feishu, routes_feedback, routes_jobs, routes_knowledge, routes_memory, routes_notifications, routes_push, routes_recommendation, routes_settings, routes_sources
+from omka.app.api import (
+    routes_agent,
+    routes_agent_goals,
+    routes_asset,
+    routes_digest,
+    routes_feedback,
+    routes_feishu,
+    routes_jobs,
+    routes_knowledge,
+    routes_memory,
+    routes_notifications,
+    routes_push,
+    routes_recommendation,
+    routes_settings,
+    routes_sources,
+)
 app.include_router(routes_sources.router, prefix="/sources", tags=["信息源"])
 app.include_router(routes_feedback.router, prefix="/candidates", tags=["候选池"])
 app.include_router(routes_digest.router, prefix="/digests", tags=["每日简报"])
@@ -122,6 +139,7 @@ app.include_router(routes_notifications.router, prefix="/notifications", tags=["
 app.include_router(routes_jobs.router, prefix="/jobs", tags=["任务"])
 app.include_router(routes_feishu.router, prefix="/integrations/feishu", tags=["飞书集成"])
 app.include_router(routes_agent.router, prefix="/agent", tags=["Agent"])
+app.include_router(routes_agent_goals.router, prefix="/agent-goals", tags=["Agent Goals"])
 
 
 if __name__ == "__main__":

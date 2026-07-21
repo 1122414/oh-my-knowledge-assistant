@@ -4,6 +4,10 @@ from sqlmodel import col, func, select
 
 from omka.app.core.logging import logger
 from omka.app.services.memory_service import MemoryService
+from omka.app.services.user_profile_service import (
+    UserProfileService,
+    UserProfileSnapshot,
+)
 from omka.app.storage.db import MemoryEvent, MemoryItem, get_session
 
 router = APIRouter()
@@ -27,6 +31,7 @@ class MemoryCreateRequest(BaseModel):
 class MemoryUpdateRequest(BaseModel):
     content: str | None = None
     summary: str | None = None
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     importance: float | None = Field(default=None, ge=0.0, le=1.0)
     status: str | None = None
     tags: list[str] | None = None
@@ -36,6 +41,13 @@ class MemoryUpdateRequest(BaseModel):
 class MemoryListResponse(BaseModel):
     items: list[dict]
     total: int
+
+
+class MemoryProfileSummary(BaseModel):
+    user_memories: int
+    conversation_memories: int
+    system_memories: int
+    candidate_memories: int
 
 
 @router.get("")
@@ -79,6 +91,40 @@ async def create_memory(data: MemoryCreateRequest):
     return {"id": memory.id, "message": "记忆已创建"}
 
 
+@router.get("/profile/summary", response_model=MemoryProfileSummary)
+async def get_memory_profile_summary():
+    with get_session() as session:
+        user_count = session.exec(
+            select(func.count(MemoryItem.id)).where(MemoryItem.memory_type == "user")
+        ).one()
+        conversation_count = session.exec(
+            select(func.count(MemoryItem.id)).where(MemoryItem.memory_type == "conversation")
+        ).one()
+        system_count = session.exec(
+            select(func.count(MemoryItem.id)).where(MemoryItem.memory_type == "system")
+        ).one()
+        candidate_count = session.exec(
+            select(func.count(MemoryItem.id)).where(MemoryItem.status == "candidate")
+        ).one()
+    return MemoryProfileSummary(
+        user_memories=user_count,
+        conversation_memories=conversation_count,
+        system_memories=system_count,
+        candidate_memories=candidate_count,
+    )
+
+
+@router.get("/profile/snapshot", response_model=UserProfileSnapshot)
+async def get_user_profile_snapshot(owner_external_id: str = "web-console"):
+    return UserProfileService.build_snapshot(owner_external_id)
+
+
+@router.post("/import-profile")
+async def import_profile_to_memory(owner_external_id: str = "web-console"):
+    result = MemoryService.import_profile_to_memory(owner_external_id)
+    return {"message": "用户画像已导入记忆", "imported": result}
+
+
 @router.get("/{memory_id}")
 async def get_memory(memory_id: str):
     memory = MemoryService.get_memory(memory_id)
@@ -93,6 +139,7 @@ async def update_memory(memory_id: str, data: MemoryUpdateRequest):
         memory_id=memory_id,
         content=data.content,
         summary=data.summary,
+        confidence=data.confidence,
         importance=data.importance,
         status=data.status,
         tags=data.tags,
@@ -137,32 +184,3 @@ async def get_memory_events(memory_id: str, limit: int = 20):
             .limit(limit)
         ).all()
     return {"memory_id": memory_id, "events": [e.model_dump() for e in events]}
-
-
-@router.get("/profile/summary")
-async def get_memory_profile_summary():
-    with get_session() as session:
-        user_count = session.exec(
-            select(func.count(MemoryItem.id)).where(MemoryItem.memory_type == "user")
-        ).one()
-        conversation_count = session.exec(
-            select(func.count(MemoryItem.id)).where(MemoryItem.memory_type == "conversation")
-        ).one()
-        system_count = session.exec(
-            select(func.count(MemoryItem.id)).where(MemoryItem.memory_type == "system")
-        ).one()
-        candidate_count = session.exec(
-            select(func.count(MemoryItem.id)).where(MemoryItem.status == "candidate")
-        ).one()
-    return {
-        "user_memories": user_count,
-        "conversation_memories": conversation_count,
-        "system_memories": system_count,
-        "candidate_memories": candidate_count,
-    }
-
-
-@router.post("/import-profile")
-async def import_profile_to_memory():
-    result = MemoryService.import_profile_to_memory()
-    return {"message": "用户画像已导入记忆", "imported": result}

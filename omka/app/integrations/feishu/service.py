@@ -214,10 +214,7 @@ class FeishuNotificationService:
         ]
 
         public_url = get_setting("feishu_public_callback_url", "")
-        if not public_url:
-            public_url = "http://127.0.0.1:5173"
-
-        if digest_info.get("digest_path"):
+        if digest_info.get("digest_path") and public_url:
             lines.extend([
                 "查看完整简报：",
                 f"{public_url}/digest",

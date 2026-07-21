@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -10,11 +11,16 @@ logger = get_logger("pipeline")
 
 
 class LLMClient:
-    def __init__(self):
-        self.provider = settings.llm_provider
+    def __init__(
+        self,
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+    ):
+        self.provider = provider or settings.llm_provider
         self.api_key = settings.llm_api_key
         self.base_url = settings.llm_base_url.rstrip("/")
-        self.model = settings.llm_model
+        self.model = model or settings.llm_model
         self.temperature = settings.llm_temperature
         self.max_tokens = settings.llm_max_tokens
         self.timeout = settings.llm_timeout
@@ -42,7 +48,7 @@ class LLMClient:
                 "suggested_action": "查看详情",
             }
 
-    @trace("agent", log_args=True)
+    @trace("agent")
     async def chat(
         self,
         messages: list[dict[str, str]],
@@ -88,15 +94,7 @@ class LLMClient:
             "max_tokens": max_tokens,
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+        return await self._post_openai_chat(payload, headers)
 
     async def _ollama_chat_messages(
         self,
@@ -152,15 +150,51 @@ class LLMClient:
             "max_tokens": self.max_tokens,
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
+        return await self._post_openai_chat(payload, headers)
+
+    async def _post_openai_chat(
+        self,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+    ) -> str:
+        max_attempts = settings.llm_retry_max_attempts
+        for attempt in range(1, max_attempts + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    return data["choices"][0]["message"]["content"]
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                retryable = status_code == 429 or status_code >= 500
+                if not retryable or attempt == max_attempts:
+                    raise
+                logger.warning(
+                    "LLM Chat 暂时不可用，准备重试 | attempt=%d/%d | status=%d",
+                    attempt,
+                    max_attempts,
+                    status_code,
+                )
+            except httpx.RequestError as exc:
+                if attempt == max_attempts:
+                    raise
+                detail = str(exc).strip() or type(exc).__name__
+                logger.warning(
+                    "LLM Chat 网络异常，准备重试 | attempt=%d/%d | error=%s",
+                    attempt,
+                    max_attempts,
+                    detail,
+                )
+            await asyncio.sleep(
+                settings.llm_retry_base_delay * (2 ** (attempt - 1))
             )
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+
+        raise RuntimeError("LLM Chat retry loop exited unexpectedly")
 
     async def _ollama_chat(self, prompt: str) -> str:
         url = f"{settings.ollama_base_url}/api/chat"

@@ -63,20 +63,21 @@ export function PushPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="推送管理"
-        description="配置推送策略，查看推送历史"
+        eyebrow="Proactive Delivery"
+        title="推送策略"
+        description="让真正重要的知识在合适的时间主动抵达，而不是制造更多通知。"
       />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="alert-panel border-destructive/15 bg-destructive/[0.055] text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
       )}
 
       {status && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="apple-surface grid divide-y divide-black/[0.055] overflow-hidden sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Activity className="h-5 w-5 text-primary" />
@@ -87,7 +88,7 @@ export function PushPage() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Bell className="h-5 w-5 text-primary" />
@@ -98,7 +99,7 @@ export function PushPage() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Calendar className="h-5 w-5 text-primary" />
@@ -112,7 +113,7 @@ export function PushPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <div className="apple-surface p-6 sm:p-8">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">

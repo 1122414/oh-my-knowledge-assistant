@@ -5,6 +5,8 @@ from sqlmodel import select
 
 from omka.app.core.config import settings
 from omka.app.core.logging import get_logger, trace
+from omka.app.profiles.interest_model import UserProfile
+from omka.app.storage.db import CandidateItem, NormalizedItem, get_session
 
 logger = get_logger("pipeline")
 

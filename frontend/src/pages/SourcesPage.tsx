@@ -39,11 +39,15 @@ export function SourcesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Sources" description="管理 GitHub 信息源">
+    <div>
+      <PageHeader
+        eyebrow="Ingestion"
+        title="信息源"
+        description="决定哪些仓库与搜索主题值得持续进入你的知识流。"
+      >
         <button
           onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="primary-button"
         >
           <Plus className="h-4 w-4" />
           添加
@@ -51,15 +55,16 @@ export function SourcesPage() {
       </PageHeader>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="alert-panel mb-6 border-destructive/15 bg-destructive/[0.055] text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
       )}
 
       {showAdd && (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold">添加信息源</h3>
+        <div className="apple-surface mb-6 p-6 sm:p-8">
+          <p className="eyebrow">New Source</p>
+          <h3 className="mb-6 mt-2 text-2xl font-semibold tracking-[-0.03em]">添加信息源</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -68,7 +73,7 @@ export function SourcesPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="例如: React 官方仓库"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                   required
                 />
               </div>
@@ -77,7 +82,7 @@ export function SourcesPage() {
                 <select
                   value={formData.mode}
                   onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                 >
                   <option value="repo">仓库</option>
                   <option value="search">搜索</option>
@@ -92,7 +97,7 @@ export function SourcesPage() {
                   value={formData.repo_full_name}
                   onChange={(e) => setFormData({ ...formData, repo_full_name: e.target.value })}
                   placeholder="owner/repo"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                   required
                 />
               </div>
@@ -104,7 +109,7 @@ export function SourcesPage() {
                     value={formData.query}
                     onChange={(e) => setFormData({ ...formData, query: e.target.value })}
                     placeholder="例如: react state management"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="field-control"
                     required
                   />
                 </div>
@@ -114,7 +119,7 @@ export function SourcesPage() {
                     type="number"
                     value={formData.limit}
                     onChange={(e) => setFormData({ ...formData, limit: parseInt(e.target.value) })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="field-control"
                   />
                 </div>
               </div>
@@ -124,7 +129,7 @@ export function SourcesPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="primary-button"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 添加
@@ -132,7 +137,7 @@ export function SourcesPage() {
               <button
                 type="button"
                 onClick={() => setShowAdd(false)}
-                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
+                className="secondary-button"
               >
                 取消
               </button>
@@ -141,20 +146,23 @@ export function SourcesPage() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {sources.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
-            <GitBranch className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">暂无信息源，点击上方按钮添加</p>
+          <div className="empty-state">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
+              <GitBranch className="h-6 w-6 text-muted-foreground" strokeWidth={1.6} />
+            </div>
+            <h2 className="mt-5 text-xl font-semibold tracking-[-0.03em]">还没有信息源</h2>
+            <p className="mt-2 text-sm text-muted-foreground">添加一个仓库或搜索主题，开始构建你的知识流。</p>
           </div>
         ) : (
           sources.map((source) => (
             <div
               key={source.id}
-              className="flex items-center justify-between rounded-2xl border border-border bg-card p-5 shadow-sm"
+              className="apple-surface flex flex-col gap-4 p-5 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
             >
               <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
                   {source.mode === "repo" ? (
                     <GitBranch className="h-5 w-5 text-primary" />
                   ) : (
@@ -174,7 +182,7 @@ export function SourcesPage() {
                 <button
                   onClick={() => runSource(source.id)}
                   disabled={runningId === source.id}
-                  className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                  className="secondary-button min-h-9 px-3 py-1.5"
                 >
                   {runningId === source.id ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -185,7 +193,7 @@ export function SourcesPage() {
                 </button>
                 <button
                   onClick={() => deleteSource(source.id)}
-                  className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/[0.07]"
                 >
                   <Trash2 className="h-3 w-3" />
                   删除

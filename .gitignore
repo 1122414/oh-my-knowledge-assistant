@@ -52,3 +52,6 @@ data/raw/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local backup archives may contain .env, databases, logs, and dependencies
+*.rar

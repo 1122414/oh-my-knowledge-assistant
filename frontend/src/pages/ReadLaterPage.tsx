@@ -52,27 +52,34 @@ export function ReadLaterPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Read Later" description="稍后阅读列表" />
+    <div>
+      <PageHeader
+        eyebrow="Reading Queue"
+        title="稍后阅读"
+        description="为需要更完整时间与注意力的内容保留一个安静队列。"
+      />
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="alert-panel mb-6 border-destructive/15 bg-destructive/[0.055] text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {items.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-sm">
-            <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">暂无稍后阅读内容，在 Digest 页面标记后会显示在这里</p>
+          <div className="empty-state">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
+              <Clock className="h-6 w-6 text-muted-foreground" strokeWidth={1.6} />
+            </div>
+            <h2 className="mt-5 text-xl font-semibold tracking-[-0.03em]">阅读队列是空的</h2>
+            <p className="mt-2 text-sm text-muted-foreground">在今日精选中标记“稍后阅读”的内容会来到这里。</p>
           </div>
         ) : (
           items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-2xl border border-border bg-card p-5 shadow-sm"
+              className="apple-surface flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
             >
               <div>
                 <a
@@ -91,7 +98,7 @@ export function ReadLaterPage() {
                 <button
                   onClick={() => handleAction(item.id, "save")}
                   disabled={actionLoading === item.id}
-                  className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+                  className="primary-button min-h-9 px-3 py-1.5"
                 >
                   <Bookmark className="h-3.5 w-3.5" />
                   收藏
@@ -99,7 +106,7 @@ export function ReadLaterPage() {
                 <button
                   onClick={() => handleAction(item.id, "ignore")}
                   disabled={actionLoading === item.id}
-                  className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/[0.07] disabled:opacity-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   删除

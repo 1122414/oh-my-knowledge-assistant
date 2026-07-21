@@ -1,4 +1,5 @@
 import json
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -111,15 +112,33 @@ class FeishuCommandRouter:
     def __init__(self, config: FeishuConfig) -> None:
         self._config: FeishuConfig = config
         self._prefix: str = config.command_prefix
-        self._current_sender_id: str = ""
+        self._current_sender_context: ContextVar[str] = ContextVar(
+            "feishu_command_sender",
+            default="",
+        )
         self._pending_confirmations: dict[int, dict] = {}
         self._nlu = NLUService()
 
-    async def route(self, event: FeishuMessageEvent) -> FeishuCommandResult:
-        self._current_sender_id = event.sender_id
+    @property
+    def _current_sender_id(self) -> str:
+        return self._current_sender_context.get()
+
+    async def route(
+        self,
+        event: FeishuMessageEvent,
+        *,
+        allow_nlu: bool = True,
+    ) -> FeishuCommandResult:
+        self._current_sender_context.set(event.sender_id)
         command, args = self._parse_command(event.content)
 
         if command is None:
+            if not allow_nlu:
+                return FeishuCommandResult(
+                    success=False,
+                    message="",
+                    command=FeishuCommandType.UNKNOWN,
+                )
             text = self._extract_text(event.content)
             nlu_result = await self._nlu.parse(text)
             if nlu_result:
@@ -404,7 +423,10 @@ class FeishuCommandRouter:
     async def _handle_memory_list(self, _args: list[str]) -> FeishuCommandResult:
         from omka.app.services.memory_service import MemoryService
 
-        memories = MemoryService.list_memories(limit=20)
+        memories = MemoryService.list_memories(
+            owner_external_id=self._current_sender_id,
+            limit=20,
+        )
         if not memories:
             message = "📝 记忆列表为空\n\n还没有记录任何记忆。"
         else:
@@ -425,10 +447,10 @@ class FeishuCommandRouter:
         from omka.app.services.memory_service import MemoryService
 
         summary = {
-            "user": MemoryService.count_memories(memory_type="user"),
-            "conversation": MemoryService.count_memories(memory_type="conversation"),
-            "system": MemoryService.count_memories(memory_type="system"),
-            "candidate": MemoryService.count_memories(status="candidate"),
+            "user": MemoryService.count_memories(memory_type="user", owner_external_id=self._current_sender_id),
+            "conversation": MemoryService.count_memories(memory_type="conversation", owner_external_id=self._current_sender_id),
+            "system": MemoryService.count_memories(memory_type="system", owner_external_id=self._current_sender_id),
+            "candidate": MemoryService.count_memories(status="candidate", owner_external_id=self._current_sender_id),
         }
 
         lines = [
@@ -457,8 +479,11 @@ class FeishuCommandRouter:
             subject="manual_add",
             content=content,
             scope="user",
+            owner_external_id=self._current_sender_id,
             source_type="manual",
             importance=0.7,
+            actor_type="user",
+            actor_id=self._current_sender_id,
         )
         return FeishuCommandResult(
             success=True,
@@ -477,7 +502,7 @@ class FeishuCommandRouter:
             )
 
         memory_id = args[0]
-        memory = MemoryService.confirm_memory(memory_id)
+        memory = MemoryService.confirm_memory(memory_id, actor_id=self._current_sender_id)
         if not memory:
             return FeishuCommandResult(
                 success=False,
@@ -501,7 +526,7 @@ class FeishuCommandRouter:
             )
 
         memory_id = args[0]
-        memory = MemoryService.reject_memory(memory_id)
+        memory = MemoryService.reject_memory(memory_id, actor_id=self._current_sender_id)
         if not memory:
             return FeishuCommandResult(
                 success=False,
@@ -579,8 +604,11 @@ class FeishuCommandRouter:
             subject="preference",
             content=content,
             scope="user",
+            owner_external_id=self._current_sender_id,
             source_type="feedback",
             importance=0.85,
+            actor_type="user",
+            actor_id=self._current_sender_id,
         )
         return FeishuCommandResult(
             success=True,
@@ -599,7 +627,11 @@ class FeishuCommandRouter:
             )
 
         candidate_id = args[0].replace("candidate:", "")
-        RecommendationService.record_feedback(candidate_id, "dislike")
+        RecommendationService.record_feedback(
+            candidate_id,
+            "dislike",
+            user_external_id=self._current_sender_id,
+        )
         return FeishuCommandResult(
             success=True,
             message=f"❌ 已标记不感兴趣\n\n候选: {candidate_id}",
@@ -617,7 +649,11 @@ class FeishuCommandRouter:
             )
 
         candidate_id = args[0].replace("candidate:", "")
-        RecommendationService.record_feedback(candidate_id, "read_later")
+        RecommendationService.record_feedback(
+            candidate_id,
+            "read_later",
+            user_external_id=self._current_sender_id,
+        )
         return FeishuCommandResult(
             success=True,
             message=f"📌 已标记稍后阅读\n\n候选: {candidate_id}",
@@ -758,6 +794,13 @@ class FeishuCommandRouter:
                 return FeishuCommandResult(success=False, message="请提供候选 ID", command=FeishuCommandType.CANDIDATE)
             candidate_id = args[1]
             if CandidateActionService.confirm_candidate(candidate_id):
+                from omka.app.services.recommendation_service import RecommendationService
+
+                RecommendationService.record_feedback(
+                    candidate_id,
+                    "confirm",
+                    user_external_id=self._current_sender_id,
+                )
                 return FeishuCommandResult(success=True, message=f"✅ 已入库\n\n候选: {candidate_id}", command=FeishuCommandType.CANDIDATE)
             return FeishuCommandResult(success=False, message=f"候选不存在: {candidate_id}", command=FeishuCommandType.CANDIDATE)
 
@@ -1416,17 +1459,53 @@ class FeishuCommandRouter:
         except ValueError:
             return FeishuCommandResult(success=False, message="确认 ID 必须是数字", command=FeishuCommandType.UNKNOWN)
 
-        pending = self._pending_confirmations.pop(action_id, None)
+        pending = self._load_pending_confirmation(action_id)
         if not pending:
             return FeishuCommandResult(success=False, message=f"未找到待确认操作: {action_id}\n可能已过期或已处理", command=FeishuCommandType.UNKNOWN)
 
         if pending.get("sender_id") != self._current_sender_id:
             return FeishuCommandResult(success=False, message="只有操作发起人可以确认此操作", command=FeishuCommandType.UNKNOWN)
+        self._pending_confirmations.pop(action_id, None)
 
         try:
             from omka.app.services.action_service import ActionService
             action_type = pending.get("action_type", "")
             params = pending.get("params", {})
+
+            if action_type.startswith("agent.tool."):
+                from omka.app.agents.tool_adapters import get_default_tool_registry
+                from omka.app.agents.tools import ToolContext
+
+                result = await get_default_tool_registry().execute_pending(
+                    action_id,
+                    ToolContext(
+                        actor_channel="feishu",
+                        actor_external_id=self._current_sender_id,
+                        conversation_id=str(params.get("conversation_id", "")),
+                    ),
+                )
+                if result is None:
+                    return FeishuCommandResult(
+                        success=False,
+                        message=f"待确认工具调用已失效: {action_id}",
+                        command=FeishuCommandType.UNKNOWN,
+                    )
+                return FeishuCommandResult(
+                    success=result.status == "success",
+                    message=result.content,
+                    command=FeishuCommandType.UNKNOWN,
+                )
+
+            claimed = ActionService.claim_confirmation(
+                action_id,
+                self._current_sender_id,
+            )
+            if not claimed:
+                return FeishuCommandResult(
+                    success=False,
+                    message=f"操作 #{action_id} 已被处理，请勿重复确认",
+                    command=FeishuCommandType.UNKNOWN,
+                )
 
             if action_type == "source.delete":
                 from omka.app.services.action_service import SourceActionService
@@ -1434,6 +1513,7 @@ class FeishuCommandRouter:
                 if SourceActionService.delete_source(source_id):
                     ActionService.complete_action(action_id, "success", result_json={"deleted": source_id})
                     return FeishuCommandResult(success=True, message=f"🗑️ 已确认删除\n\n信息源: {source_id}", command=FeishuCommandType.SOURCE)
+                ActionService.complete_action(action_id, "failed", error_message="信息源不存在")
                 return FeishuCommandResult(success=False, message=f"删除失败，信息源可能已不存在: {source_id}", command=FeishuCommandType.SOURCE)
 
             if action_type == "knowledge.delete":
@@ -1442,14 +1522,16 @@ class FeishuCommandRouter:
                 if KnowledgeActionService.delete_knowledge(knowledge_id):
                     ActionService.complete_action(action_id, "success", result_json={"deleted": knowledge_id})
                     return FeishuCommandResult(success=True, message=f"🗑️ 已确认删除\n\n知识条目: {knowledge_id}", command=FeishuCommandType.KNOWLEDGE)
+                ActionService.complete_action(action_id, "failed", error_message="知识条目不存在")
                 return FeishuCommandResult(success=False, message=f"删除失败，知识条目可能已不存在: {knowledge_id}", command=FeishuCommandType.KNOWLEDGE)
 
             if action_type == "memory.delete":
                 from omka.app.services.memory_service import MemoryService
                 memory_id = params.get("memory_id")
-                if MemoryService.delete_memory(memory_id):
+                if MemoryService.delete_memory(memory_id, actor_id=self._current_sender_id):
                     ActionService.complete_action(action_id, "success", result_json={"deleted": memory_id})
                     return FeishuCommandResult(success=True, message=f"🗑️ 已确认删除\n\n记忆: {memory_id}", command=FeishuCommandType.UNKNOWN)
+                ActionService.complete_action(action_id, "failed", error_message="记忆不存在")
                 return FeishuCommandResult(success=False, message=f"删除失败，记忆可能已不存在: {memory_id}", command=FeishuCommandType.UNKNOWN)
 
             ActionService.complete_action(action_id, "failed", error_message="未知操作类型")
@@ -1466,13 +1548,52 @@ class FeishuCommandRouter:
         except ValueError:
             return FeishuCommandResult(success=False, message="操作 ID 必须是数字", command=FeishuCommandType.UNKNOWN)
 
-        pending = self._pending_confirmations.pop(action_id, None)
+        pending = self._load_pending_confirmation(action_id)
         if not pending:
             return FeishuCommandResult(success=False, message=f"未找到待取消操作: {action_id}", command=FeishuCommandType.UNKNOWN)
+        if pending.get("sender_id") != self._current_sender_id:
+            return FeishuCommandResult(success=False, message="只有操作发起人可以取消此操作", command=FeishuCommandType.UNKNOWN)
+        self._pending_confirmations.pop(action_id, None)
 
         from omka.app.services.action_service import ActionService
+        claimed = ActionService.claim_confirmation(
+            action_id,
+            self._current_sender_id,
+        )
+        if not claimed:
+            return FeishuCommandResult(
+                success=False,
+                message=f"操作 #{action_id} 已被处理，无法取消",
+                command=FeishuCommandType.UNKNOWN,
+            )
         ActionService.complete_action(action_id, "cancelled")
         return FeishuCommandResult(success=True, message=f"❌ 已取消操作 #{action_id}", command=FeishuCommandType.UNKNOWN)
+
+    def _load_pending_confirmation(self, action_id: int) -> dict | None:
+        cached = self._pending_confirmations.get(action_id)
+        if cached:
+            return cached
+
+        from omka.app.storage.db import SystemAction
+
+        with get_session() as session:
+            action = session.get(SystemAction, action_id)
+            if not action or action.status not in ("pending", "needs_confirm"):
+                return None
+            payload = action.params_json or {}
+            if action.action_type.startswith("agent.tool."):
+                return {
+                    "sender_id": action.actor_external_id,
+                    "action_type": action.action_type,
+                    "params": payload,
+                    "created_at": action.created_at.isoformat(),
+                }
+            return {
+                "sender_id": action.actor_external_id,
+                "action_type": str(payload.get("confirmation_action_type", action.action_type)),
+                "params": payload.get("confirmation_params", payload),
+                "created_at": action.created_at.isoformat(),
+            }
 
     def _create_pending_confirmation(self, action_id: int, action_type: str, params: dict) -> str:
         self._pending_confirmations[action_id] = {
@@ -1481,6 +1602,19 @@ class FeishuCommandRouter:
             "params": params,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        from omka.app.storage.db import SystemAction
+
+        with get_session() as session:
+            action = session.get(SystemAction, action_id)
+            if action:
+                action.status = "needs_confirm"
+                action.params_json = {
+                    **(action.params_json or {}),
+                    "confirmation_action_type": action_type,
+                    "confirmation_params": params,
+                }
+                session.add(action)
+                session.commit()
         return (
             f"⚠️ 这是一个高危操作，需要二次确认。\n\n"
             f"操作: {action_type}\n"

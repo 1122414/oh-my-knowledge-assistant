@@ -2,9 +2,8 @@ import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from omka.app.agents.base import AgentContext
 from omka.app.agents.context_builder import ContextBuilder
-from omka.app.agents.simple_knowledge_agent import SimpleKnowledgeAgent
+from omka.app.agents.runtime import KnowledgeAgentRuntime
 from omka.app.core.config import settings
 from omka.app.core.logging import TraceContext, get_logger, trace
 from omka.app.storage.db import AgentRun, ConversationMessage, get_session
@@ -41,12 +40,13 @@ class DisabledFeishuConversationGateway(FeishuConversationGateway):
 class SimpleKnowledgeAgentGateway(FeishuConversationGateway):
 
     def __init__(self):
-        self._agent = SimpleKnowledgeAgent()
+        self._agent = KnowledgeAgentRuntime()
         self._context_builder = ContextBuilder(
             max_recent_messages=settings.omka_agent_max_recent_messages,
             max_digest_items=settings.omka_agent_max_digest_items,
             max_knowledge_items=settings.omka_agent_max_knowledge_items,
             max_candidate_items=settings.omka_agent_max_candidate_items,
+            max_memory_items=settings.memory_max_active_items,
             max_context_chars=settings.omka_agent_max_context_chars,
         )
 
@@ -59,26 +59,18 @@ class SimpleKnowledgeAgentGateway(FeishuConversationGateway):
         context: dict | None = None,
     ) -> str:
         logger.info("开始处理用户消息 | user_id=%s | chat_id=%s", user_id, chat_id)
-        self._save_message(chat_id, user_id, "user", message)
-
-        logger.info("构建 Agent 上下文...")
-        agent_context = await self._context_builder.build(
-            user_message=message,
-            conversation_id=chat_id,
-            user_external_id=user_id,
-        )
-        logger.info("上下文构建完成 | recent=%d | digest=%d | knowledge=%d | candidate=%d",
-                    len(agent_context.recent_messages),
-                    len(agent_context.digest_items),
-                    len(agent_context.knowledge_items),
-                    len(agent_context.candidate_items))
-
         start_time = datetime.utcnow()
         agent_timeout = settings.omka_agent_timeout_seconds or 25
         logger.info("调用 Agent | timeout=%ds", agent_timeout)
         try:
             response = await asyncio.wait_for(
-                self._agent.answer(agent_context),
+                self._agent.execute(
+                    user_message=message,
+                    conversation_id=chat_id,
+                    user_external_id=user_id,
+                    channel="feishu",
+                    context_builder=self._context_builder,
+                ),
                 timeout=agent_timeout
             )
             logger.info("Agent 返回成功 | answer_length=%d", len(response.answer))
@@ -87,6 +79,7 @@ class SimpleKnowledgeAgentGateway(FeishuConversationGateway):
             return "抱歉，处理你的问题时超时了。请稍后再试，或发送 /omka help 查看可用命令。"
         latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
+        self._save_message(chat_id, user_id, "user", message)
         self._save_message(chat_id, user_id, "assistant", response.answer)
         self._save_agent_run(chat_id, user_id, message, response, latency_ms)
 
@@ -117,6 +110,14 @@ class SimpleKnowledgeAgentGateway(FeishuConversationGateway):
     ) -> None:
         try:
             with get_session() as session:
+                if response.run_id is not None:
+                    run = session.get(AgentRun, response.run_id)
+                    if run:
+                        run.channel = "feishu"
+                        run.latency_ms = latency_ms
+                        session.add(run)
+                        session.commit()
+                        return
                 run = AgentRun(
                     conversation_id=conversation_id,
                     user_external_id=user_external_id,

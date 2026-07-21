@@ -68,20 +68,20 @@ export function OnboardingPage() {
 
   if (isComplete) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
+      <div className="flex min-h-screen items-center justify-center px-6 py-12">
+        <div className="apple-surface max-w-lg p-10 text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/10">
             <Check className="h-10 w-10 text-success" />
           </div>
-          <h1 className="mt-6 text-2xl font-semibold">配置完成！</h1>
+          <h1 className="mt-6 text-3xl font-semibold tracking-[-0.04em]">配置完成</h1>
           <p className="mt-2 text-muted-foreground">
             您已完成 OMKA 的初始配置，现在可以开始使用了。
           </p>
           <button
             onClick={() => navigate("/")}
-            className="mt-6 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="primary-button mt-6"
           >
-            进入 Dashboard
+            进入 OMKA
           </button>
         </div>
       </div>
@@ -89,36 +89,51 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-8">
-      <div className="w-full max-w-lg">
-        <div className="mb-8 flex items-center justify-center gap-2">
-          <BookOpen className="h-8 w-8 text-primary" />
-          <span className="text-xl font-semibold">OMKA</span>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:p-8">
+      <img
+        src="/images/knowledge-flow-hero.png"
+        alt=""
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25"
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 bg-white/65 backdrop-blur-[2px]" />
+      <div className="relative w-full max-w-2xl">
+        <div className="mb-8 flex items-center justify-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-foreground text-white shadow-lg">
+            <BookOpen className="h-5 w-5" strokeWidth={1.8} />
+          </div>
+          <div>
+            <span className="text-lg font-semibold tracking-[-0.03em]">OMKA</span>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Knowledge Agent</p>
+          </div>
         </div>
 
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between px-2 sm:px-8">
           {steps.map((s, i) => {
             const Icon = s.icon
             return (
               <div key={i} className="flex flex-col items-center gap-2">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                    i <= step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs transition-all sm:h-10 sm:w-10 ${
+                    i <= step
+                      ? "border-primary bg-primary text-primary-foreground shadow-[0_5px_16px_rgba(0,113,227,0.2)]"
+                      : "border-black/[0.06] bg-white/65 text-muted-foreground"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-xs">{s.title}</span>
+                <span className="hidden text-[10px] font-medium text-muted-foreground sm:block">{s.title}</span>
               </div>
             )
           })}
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+        <div className="apple-surface min-h-[390px] p-6 sm:p-10">
           {step === 0 && (
             <div className="text-center">
-              <h2 className="text-xl font-semibold">欢迎使用 OMKA</h2>
-              <p className="mt-2 text-muted-foreground">
+              <p className="eyebrow">Welcome</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">欢迎使用 OMKA</h2>
+              <p className="mx-auto mt-3 max-w-md leading-7 text-muted-foreground">
                 OMKA 是您的个人知识助手，帮助您自动发现、筛选和收藏 GitHub 上的优质内容。
               </p>
               <p className="mt-4 text-sm text-muted-foreground">
@@ -140,7 +155,7 @@ export function OnboardingPage() {
                   value={githubToken}
                   onChange={(e) => setGithubToken(e.target.value)}
                   placeholder="ghp_xxxxxxxxxxxx"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                 />
                 <p className="text-xs text-muted-foreground">
                   在 GitHub Settings - Developer settings - Personal access tokens 中生成
@@ -159,7 +174,7 @@ export function OnboardingPage() {
                   value={repoName}
                   onChange={(e) => setRepoName(e.target.value)}
                   placeholder="例如: React"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                 />
               </div>
               <div className="space-y-2">
@@ -168,7 +183,7 @@ export function OnboardingPage() {
                   value={repoFullName}
                   onChange={(e) => setRepoFullName(e.target.value)}
                   placeholder="owner/repo"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                 />
               </div>
             </div>
@@ -184,7 +199,7 @@ export function OnboardingPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="例如: react state management"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                 />
               </div>
             </div>
@@ -202,7 +217,7 @@ export function OnboardingPage() {
                   value={feishuUrl}
                   onChange={(e) => setFeishuUrl(e.target.value)}
                   placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="field-control"
                 />
               </div>
             </div>
@@ -222,7 +237,7 @@ export function OnboardingPage() {
             <button
               onClick={handleBack}
               disabled={step === 0}
-              className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              className="secondary-button"
             >
               <ChevronLeft className="h-4 w-4" />
               上一步
@@ -231,7 +246,7 @@ export function OnboardingPage() {
             {step < steps.length - 1 ? (
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                className="primary-button"
               >
                 下一步
                 <ChevronRight className="h-4 w-4" />
@@ -239,7 +254,7 @@ export function OnboardingPage() {
             ) : (
               <button
                 onClick={handleComplete}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                className="primary-button"
               >
                 <Check className="h-4 w-4" />
                 完成

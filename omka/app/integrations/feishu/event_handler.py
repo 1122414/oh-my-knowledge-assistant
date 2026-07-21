@@ -55,14 +55,18 @@ class FeishuEventHandler:
         if self._check_duplicate(event_id):
             return {"code": 0, "msg": "ok"}
 
+        self._mark_processed(event_id)
+        self._log_event(event_id, event_type, payload)
+
         try:
             if event_type == "im.message.receive_v1":
                 result = await self._handle_message_event(event_id, event_type, event)
             else:
                 logger.warning("未支持的事件类型 | event_type=%s", event_type)
                 result = {"code": 0, "msg": "ok"}
-        finally:
-            self._mark_processed(event_id)
+        except Exception as e:
+            logger.error("处理飞书事件异常 | event_id=%s | error=%s", event_id, e)
+            result = {"code": -1, "msg": str(e)}
 
         return result
 
@@ -111,7 +115,7 @@ class FeishuEventHandler:
             await self._auto_bind(parsed.sender_id, parsed.chat_id)
 
         logger.info("开始路由命令 | content=%s", parsed.content[:100])
-        command_result = await self._command_router.route(parsed)
+        command_result = await self._command_router.route(parsed, allow_nlu=False)
         logger.info("命令路由完成 | success=%s | message=%s", command_result.success, command_result.message[:100] if command_result.message else "")
 
         if command_result.success:
@@ -132,7 +136,10 @@ class FeishuEventHandler:
                     logger.error("回复命令结果失败 | error=%s | code=%s", result.message, result.error_code)
             except Exception as e:
                 logger.error("回复命令结果异常 | error=%s", e)
-        elif command_result.command != FeishuCommandType.UNKNOWN:
+        elif command_result.command not in (
+            FeishuCommandType.UNKNOWN,
+            FeishuCommandType.CHAT,
+        ):
             from omka.app.integrations.feishu.client import FeishuAppBotClient
             from omka.app.integrations.feishu.auth import FeishuAuthService
 
@@ -252,24 +259,48 @@ class FeishuEventHandler:
             raise FeishuEventError("Verification token mismatch", error_code="TOKEN_INVALID")
 
     def _check_duplicate(self, event_id: str) -> bool:
-        """检查事件是否已处理过。返回 True 表示是重复事件。"""
         if not event_id:
             return False
         if event_id in self._processed_event_ids:
-            logger.info("重复事件，跳过 | event_id=%s", event_id)
+            logger.info("重复事件(内存)，跳过 | event_id=%s", event_id)
             return True
+        try:
+            with get_session() as session:
+                from omka.app.storage.db import FeishuEventLog
+                existing = session.exec(
+                    select(FeishuEventLog).where(FeishuEventLog.event_id == event_id)
+                ).first()
+                if existing:
+                    logger.info("重复事件(DB)，跳过 | event_id=%s", event_id)
+                    self._processed_event_ids.add(event_id)
+                    return True
+        except Exception as e:
+            logger.warning("DB去重检查失败，继续处理 | error=%s", e)
         if len(self._processed_event_ids) >= MAX_DEDUP_SIZE:
             evict_count = MAX_DEDUP_SIZE // 2
             evicted = set(list(self._processed_event_ids)[:evict_count])
             self._processed_event_ids -= evicted
-            logger.debug("去重集合已清理 | evicted=%d", evict_count)
         return False
 
     def _mark_processed(self, event_id: str) -> None:
-        """将事件标记为已处理。仅在 handle_event 成功完成后调用。"""
         if not event_id:
             return
         self._processed_event_ids.add(event_id)
+
+    def _log_event(self, event_id: str, event_type: str, payload: dict) -> None:
+        try:
+            with get_session() as session:
+                from omka.app.storage.db import FeishuEventLog
+                log = FeishuEventLog(
+                    event_id=event_id,
+                    event_type=event_type,
+                    handled_status="received",
+                    raw_event_json=payload,
+                )
+                session.add(log)
+                session.commit()
+        except Exception as e:
+            logger.warning("事件日志写入失败 | error=%s", e)
 
     def _decrypt_if_needed(self, event: dict[str, Any]) -> dict[str, Any]:
         if not self._config.encrypt_key:

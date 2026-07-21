@@ -18,5 +18,9 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Data hooks intentionally kick off their async fetch on mount.
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])
